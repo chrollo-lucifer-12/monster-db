@@ -12,6 +12,7 @@ import (
 func setupFlags() {
 	flag.StringVar(&config.Host, "host", "127.0.0.1", "host")
 	flag.IntVar(&config.Port, "port", 6379, "port")
+	flag.IntVar(&config.KeyLimit, "key_limit", 20, "key_limit")
 	flag.Parse()
 }
 
