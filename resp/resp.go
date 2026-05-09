@@ -33,7 +33,7 @@ func readLength(data []byte) (int, int) {
 
 	for pos < len(data) {
 		b := data[pos]
-		if !(b >= '0' && b <= '9') {
+		if b == '\r' {
 			return length, pos + 2
 		}
 		length = length*10 + int(b-'0')
@@ -91,12 +91,12 @@ func DecodeOne(data []byte) (interface{}, int, error) {
 }
 
 func DecodeArrayString(data []byte) ([]string, error) {
-	value, err := Decode(data)
+	values, err := Decode(data)
 	if err != nil {
 		return nil, err
 	}
 
-	ts := value.([]interface{})
+	ts := values[0].([]interface{})
 
 	tokens := make([]string, len(ts))
 
@@ -107,12 +107,24 @@ func DecodeArrayString(data []byte) ([]string, error) {
 	return tokens, nil
 }
 
-func Decode(data []byte) (interface{}, error) {
+func Decode(data []byte) ([]interface{}, error) {
 	if len(data) == 0 {
 		return nil, errors.New("no data")
 	}
-	msg, _, err := DecodeOne(data)
-	return msg, err
+
+	var values []interface{} = make([]interface{}, 0)
+	var index int = 0
+
+	for index < len(data) {
+		value, delta, err := DecodeOne(data[index:])
+		if err != nil {
+			return values, err
+		}
+		index = index + delta
+		values = append(values, value)
+	}
+
+	return values, nil
 }
 
 func Encode(value any, isSimple bool) []byte {

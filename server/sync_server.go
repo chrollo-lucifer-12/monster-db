@@ -3,17 +3,21 @@ package server
 import (
 	"fmt"
 	"io"
-	"log"
-	"net"
-	"strconv"
 	"strings"
 
-	"github.com/redis-server/config"
 	"github.com/redis-server/core"
 	"github.com/redis-server/resp"
 )
 
-func readCommand(client io.ReadWriter) (*core.RedisCmd, error) {
+func toArrayString(ai []interface{}) ([]string, error) {
+	as := make([]string, len(ai))
+	for i := range ai {
+		as[i] = ai[i].(string)
+	}
+	return as, nil
+}
+
+func readCommands(client io.ReadWriter) (core.RedisCmds, error) {
 	var buf []byte = make([]byte, 512)
 
 	n, err := client.Read(buf[:])
@@ -21,63 +25,68 @@ func readCommand(client io.ReadWriter) (*core.RedisCmd, error) {
 		return nil, err
 	}
 
-	tokens, err := resp.DecodeArrayString(buf[:n])
+	values, err := resp.Decode(buf[:n])
 
 	if err != nil {
 		return nil, err
 	}
 
-	fmt.Println(tokens)
+	var cmds []*core.RedisCmd = make([]*core.RedisCmd, 0)
 
-	return &core.RedisCmd{
-		Cmd:  strings.ToUpper(tokens[0]),
-		Args: tokens[1:],
-	}, nil
+	for _, value := range values {
+		tokens, err := toArrayString(value.([]interface{}))
+		if err != nil {
+			return nil, err
+		}
+		cmds = append(cmds, &core.RedisCmd{
+			Cmd:  strings.ToUpper(tokens[0]),
+			Args: tokens[1:],
+		})
+	}
+
+	return cmds, nil
 }
 
 func respondWithError(client io.ReadWriter, err error) {
 	client.Write([]byte(fmt.Sprintf("-%s\r\n", err)))
 }
 
-func respond(cmd *core.RedisCmd, client io.ReadWriter) {
-	err := core.EvalAndInput(cmd, client)
-	if err != nil {
-		respondWithError(client, err)
-	}
+func respond(cmds core.RedisCmds, client io.ReadWriter) {
+	core.EvalAndInput(cmds, client)
 }
 
-func RunSyncServer() {
-	log.Println("starting the server on ", config.Host, config.Port)
+// func RunSyncServer() {
+// 	log.Println("starting the server on ", config.Host, config.Port)
 
-	var con_clients int = 0
+// 	var con_clients int = 0
 
-	lsnr, err := net.Listen("tcp", config.Host+":"+strconv.Itoa(config.Port))
+// 	lsnr, err := net.Listen("tcp", config.Host+":"+strconv.Itoa(config.Port))
 
-	if err != nil {
-		panic(err)
-	}
+// 	if err != nil {
+// 		panic(err)
+// 	}
 
-	for {
-		c, err := lsnr.Accept()
-		if err != nil {
-			panic(err)
-		}
-		con_clients += 1
-		log.Println("client connected with address: ", c.RemoteAddr(), "concurrent clients: ", con_clients)
+// 	for {
+// 		c, err := lsnr.Accept()
+// 		if err != nil {
+// 			panic(err)
+// 		}
+// 		con_clients += 1
+// 		log.Println("client connected with address: ", c.RemoteAddr(), "concurrent clients: ", con_clients)
 
-		for {
-			cmd, err := readCommand(c)
-			if err != nil {
-				c.Close()
-				con_clients -= 1
-				log.Println("client disconnected with address: ", c.RemoteAddr(), "concurrent clients: ", con_clients)
-				if err == io.EOF {
-					break
-				}
-				log.Println("err", err)
-			}
+// 		for {
+// 			cmd, err := readCommand(c)
+// 			if err != nil {
+// 				c.Close()
+// 				con_clients -= 1
+// 				log.Println("client disconnected with address: ", c.RemoteAddr(), "concurrent clients: ", con_clients)
+// 				if err == io.EOF {
+// 					break
+// 				}
+// 				log.Println("err", err)
+// 			}
 
-			respond(cmd, c)
-		}
-	}
-}
+// 			respond(cmd, c)
+// 		}
+// 	}
+// }
