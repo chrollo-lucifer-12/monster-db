@@ -3,6 +3,7 @@ package main
 import (
 	"flag"
 	"log"
+	"os"
 
 	"github.com/redis-server/config"
 	"github.com/redis-server/core"
@@ -17,6 +18,11 @@ func setupFlags() {
 }
 
 func main() {
+	if len(os.Args) > 1 && os.Args[1] == "--rewrite-aof" {
+		core.DumpAllAOF()
+		return
+	}
+
 	core.Init()
 	setupFlags()
 	log.Println("starting the server...")

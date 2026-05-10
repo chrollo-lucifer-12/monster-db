@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"errors"
 	"io"
+	"os/exec"
 	"strconv"
 	"time"
 
@@ -148,9 +149,14 @@ func evalEXPIRE(args []string) []byte {
 	return RESP_ONE
 }
 
-// make new process
 func evalBGREWRITE(args []string) []byte {
-	DumpAllAOF()
+	cmd := exec.Command("go", "run", ".", "--rewrite-aof")
+
+	err := cmd.Start()
+	if err != nil {
+		return RESP_MINUS_ONE
+	}
+
 	return RESP_OK
 }
 
