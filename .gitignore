@@ -1,2 +1,3 @@
 bin
 temp.aof
+appendonly.aof

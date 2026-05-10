@@ -2,18 +2,33 @@ package core
 
 import (
 	"fmt"
+	"io"
 	"log"
 	"os"
-	"strings"
+	"strconv"
 
 	"github.com/redis-server/config"
 	"github.com/redis-server/resp"
 )
 
-func dumpkey(fp *os.File, k string, obj *Obj) {
-	cmd := fmt.Sprintf("SET %s %s", k, obj.Value)
-	tokens := strings.Split(cmd, " ")
+func writeCommand(fp *os.File, tokens []string) {
 	fp.Write(resp.Encode(tokens, false))
+}
+
+func dumpkey(fp *os.File, k string, obj *Obj) {
+	writeCommand(fp, []string{
+		"SET",
+		k,
+		obj.Value.(string),
+	})
+
+	if obj.ExpiresAt > 0 {
+		writeCommand(fp, []string{
+			"EXPIRE",
+			k,
+			strconv.FormatInt(obj.ExpiresAt, 10),
+		})
+	}
 }
 
 func DumpAllAOF() {
@@ -23,11 +38,35 @@ func DumpAllAOF() {
 		return
 	}
 
+	defer fp.Close()
+
 	log.Println("rewriting AOF file at ", config.AOFFILE)
 
 	for k, obj := range store {
 		dumpkey(fp, k, obj)
 	}
 
+	fp.Sync()
+
 	log.Println("AOF file rewrite complete")
+}
+
+func Restoreaof() {
+	fp, err := os.OpenFile(config.AOFFILE, os.O_RDONLY, 0644)
+	if err != nil {
+		fmt.Println("error", err)
+		return
+	}
+
+	defer fp.Close()
+
+	data, err := io.ReadAll(fp)
+	if err != nil {
+		fmt.Println("error", err)
+		return
+	}
+
+	decoded, err := resp.Decode(data)
+
+	fmt.Println(decoded...)
 }

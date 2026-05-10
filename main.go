@@ -24,6 +24,7 @@ func main() {
 	}
 
 	core.Init()
+	//	core.RESTOREAOF()
 	setupFlags()
 	log.Println("starting the server...")
 	server.RunAsyncServer()
