@@ -9,24 +9,20 @@ import (
 
 var store map[string]*Obj
 
-type Obj struct {
-	Value     interface{}
-	ExpiresAt int64
-}
-
 func Init() {
 	store = make(map[string]*Obj)
 }
 
-func NewObj(value interface{}, durationMs int64) *Obj {
+func NewObj(value interface{}, durationMs int64, oType uint8, oEnc uint8) *Obj {
 	var expiresAt int64 = -1
 	if durationMs > 0 {
 		expiresAt = time.Now().UnixMilli() + durationMs
 	}
 
 	return &Obj{
-		Value:     value,
-		ExpiresAt: expiresAt,
+		Value:        value,
+		TypeEncoding: oType | oEnc,
+		ExpiresAt:    expiresAt,
 	}
 }
 
@@ -40,7 +36,7 @@ func Put(k string, obj *Obj) {
 func Get(k string) *Obj {
 	v := store[k]
 	if v != nil {
-		if v.ExpiresAt <= time.Now().UnixMilli() {
+		if v.ExpiresAt != -1 && v.ExpiresAt <= time.Now().UnixMilli() {
 			delete(store, k)
 			return nil
 		}
