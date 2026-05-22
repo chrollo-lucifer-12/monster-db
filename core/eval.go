@@ -3,6 +3,7 @@ package core
 import (
 	"bytes"
 	"errors"
+	"fmt"
 	"io"
 	"os/exec"
 	"strconv"
@@ -189,6 +190,26 @@ func evalINCR(args []string) []byte {
 	return resp.Encode(i, false)
 }
 
+func evalINFO(args []string) []byte {
+	var info []byte
+	buf := bytes.NewBuffer(info)
+	buf.WriteString("# Keyspace\r\n")
+
+	for i := range KeyspaceStat {
+		buf.WriteString(fmt.Sprintf("db%d:keys=%d,expires=0,avg_ttl=0\r\n", i, KeyspaceStat[i]["keys"]))
+	}
+
+	return resp.Encode(buf.String(), false)
+}
+
+func evalCLIENT(args []string) []byte {
+	return RESP_OK
+}
+
+func evalLATENCY(args []string) []byte {
+	return resp.Encode([]string{}, false)
+}
+
 func EvalAndInput(cmds RedisCmds, client io.ReadWriter) {
 	var response []byte
 	buf := bytes.NewBuffer(response)
@@ -211,6 +232,12 @@ func EvalAndInput(cmds RedisCmds, client io.ReadWriter) {
 			buf.Write(evalBGREWRITE(cmd.Args))
 		case "INCR":
 			buf.Write(evalINCR(cmd.Args))
+		case "INFO":
+			buf.Write(evalINFO(cmd.Args))
+		case "CLIENT":
+			buf.Write(evalCLIENT(cmd.Args))
+		case "LATENCY":
+			buf.Write(evalLATENCY(cmd.Args))
 		default:
 			buf.Write(evalPING(cmd.Args))
 		}
