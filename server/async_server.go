@@ -12,8 +12,6 @@ import (
 	"golang.org/x/sys/unix"
 )
 
-const EPOLLET uint32 = 1 << 31
-
 var con_clients int = 0
 
 var (
@@ -78,7 +76,7 @@ func RunAsyncServer() error {
 	defer unix.Close(epollFD)
 
 	var socketServerEvent unix.EpollEvent = unix.EpollEvent{
-		Events: uint32(unix.EPOLLIN) | EPOLLET,
+		Events: unix.EPOLLIN,
 		Fd:     int32(serverFD),
 	}
 
@@ -131,7 +129,7 @@ func RunAsyncServer() error {
 					unix.SetNonblock(fd, true)
 
 					var socketServerEvent unix.EpollEvent = unix.EpollEvent{
-						Events: unix.EPOLLIN | EPOLLET,
+						Events: unix.EPOLLIN,
 						Fd:     int32(fd),
 					}
 

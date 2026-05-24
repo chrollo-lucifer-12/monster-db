@@ -21,27 +21,29 @@ func toArrayString(ai []interface{}) ([]string, error) {
 func readCommands(client io.ReadWriter) (core.RedisCmds, error) {
 
 	var accumulatedData []byte
-	chunk := make([]byte, 512)
+	chunk := make([]byte, 4096)
 
 	for {
 		n, err := client.Read(chunk)
+
 		if n > 0 {
 			accumulatedData = append(accumulatedData, chunk[:n]...)
 		}
 
 		if err != nil {
-			if netErr, ok := err.(net.Error); ok && netErr.Timeout() {
+
+			if netErr, ok := err.(net.Error); ok && (netErr.Timeout() || netErr.Temporary()) {
 				break
 			}
+
 			if err == io.EOF {
 				return nil, err
 			}
+
 			return nil, err
 		}
 
-		if n < len(chunk) {
-			break
-		}
+		break
 	}
 
 	if len(accumulatedData) == 0 {
@@ -49,18 +51,23 @@ func readCommands(client io.ReadWriter) (core.RedisCmds, error) {
 	}
 
 	values, err := resp.Decode(accumulatedData)
-
 	if err != nil {
 		return nil, err
 	}
 
-	var cmds []*core.RedisCmd = make([]*core.RedisCmd, 0)
+	cmds := make([]*core.RedisCmd, 0, len(values))
 
 	for _, value := range values {
+
 		tokens, err := toArrayString(value.([]interface{}))
 		if err != nil {
 			return nil, err
 		}
+
+		if len(tokens) == 0 {
+			continue
+		}
+
 		cmds = append(cmds, &core.RedisCmd{
 			Cmd:  strings.ToUpper(tokens[0]),
 			Args: tokens[1:],

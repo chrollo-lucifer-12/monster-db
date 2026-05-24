@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"os/exec"
 	"strconv"
 	"time"
@@ -216,10 +217,10 @@ func EvalAndInput(cmds RedisCmds, client io.ReadWriter) {
 	var response []byte
 	buf := bytes.NewBuffer(response)
 
+	log.Println(cmds[len(cmds)-1])
+
 	for _, cmd := range cmds {
 		switch cmd.Cmd {
-		case "PING":
-			buf.Write(evalPING(cmd.Args))
 		case "SET":
 			buf.Write(evalSET(cmd.Args))
 		case "GET":
