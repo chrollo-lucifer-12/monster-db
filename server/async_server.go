@@ -3,6 +3,7 @@ package server
 import (
 	"log"
 	"net"
+	"os"
 	"runtime"
 	"time"
 
@@ -14,10 +15,26 @@ import (
 const EPOLLET uint32 = 1 << 31
 
 var con_clients int = 0
-var cronFrequency time.Duration = 10 * time.Second
-var lastCronExecTime time.Time = time.Now()
-var rdbFrequency time.Duration = 900 * time.Second
-var lastRdbExecTime time.Time = time.Now()
+
+var (
+	lastCron time.Time = time.Now()
+
+	lastRDB      time.Time = time.Now()
+	rdbFrequency           = 900 * time.Second
+
+	cronFrequency = 1000 * time.Millisecond
+)
+
+func serverCron() {
+	now := time.Now()
+
+	if now.Sub(lastRDB) > rdbFrequency {
+		core.TriggerRDB()
+		lastRDB = now
+	}
+
+	core.DeleteExpiredKey()
+}
 
 func RunAsyncServer() error {
 
@@ -26,7 +43,7 @@ func RunAsyncServer() error {
 
 	log.Println("starting server on ", config.Host, config.Port)
 
-	max_clients := 20_000
+	max_clients := 1_00_000
 
 	var events []unix.EpollEvent = make([]unix.EpollEvent, max_clients)
 
@@ -70,32 +87,22 @@ func RunAsyncServer() error {
 	}
 
 	for {
-		now := time.Now()
-		nextRDB := lastRdbExecTime.Add(rdbFrequency)
-		nextCron := lastCronExecTime.Add(cronFrequency)
 
-		next := nextRDB
-
-		if nextCron.Before(next) {
-			next = nextCron
+		if time.Since(lastCron) >= cronFrequency {
+			serverCron()
+			lastCron = time.Now()
 		}
 
-		if now.After(lastRdbExecTime.Add(rdbFrequency)) {
-			core.TriggerRDB()
-			lastRdbExecTime = now
-		}
+		timeout := int(time.Until(lastCron.Add(cronFrequency)).Milliseconds())
 
-		if now.After(lastCronExecTime.Add(cronFrequency)) {
-			core.DeleteExpiredKey()
-			lastCronExecTime = now
-		}
-
-		timeout := time.Until(next)
 		if timeout < 0 {
 			timeout = 0
 		}
+		if timeout > 100 {
+			timeout = 100
+		}
 
-		nevents, e := unix.EpollWait(epollFD, events[:], int(timeout.Milliseconds()))
+		nevents, e := unix.EpollWait(epollFD, events[:], timeout)
 		if e != nil {
 			continue
 		}
@@ -104,12 +111,72 @@ func RunAsyncServer() error {
 			currentFD := int(events[i].Fd)
 
 			if currentFD == serverFD {
-				if err := handleNetwork(currentFD, epollFD); err != nil {
+				for {
+					fd, _, err := unix.Accept(serverFD)
+					if err != nil {
+						if err == unix.EAGAIN || err == unix.EWOULDBLOCK {
+							break
+						}
+
+						if err == unix.EMFILE || err == unix.ENFILE {
+							log.Println("FD limit reached, cannot accept more clients")
+							break
+						}
+
+						log.Println("accept error:", err)
+						return nil
+					}
+
+					con_clients++
+					unix.SetNonblock(fd, true)
+
+					var socketServerEvent unix.EpollEvent = unix.EpollEvent{
+						Events: unix.EPOLLIN | EPOLLET,
+						Fd:     int32(fd),
+					}
+
+					if err := unix.EpollCtl(epollFD, unix.EPOLL_CTL_ADD, fd, &socketServerEvent); err != nil {
+						unix.Close(fd)
+						con_clients -= 1
+						log.Println("epoll add error:", err)
+						continue
+					}
+				}
+
+			} else {
+				comm := core.FDComm{Fd: int(currentFD)}
+				cmds, err := readCommands(comm)
+
+				if err != nil {
+					log.Println(err.Error())
+					unix.EpollCtl(epollFD, unix.EPOLL_CTL_DEL, int(currentFD), nil)
+					unix.Close(int(currentFD))
+					con_clients -= 1
 					continue
 				}
-			}
 
-			handleMessages(epollFD, currentFD)
+				if len(cmds) > 0 && cmds[0].Cmd == "GET_LARGE" {
+					file, err := os.Open("/var/redis/data/massive_payload.dat")
+					if err != nil {
+						log.Printf("Failed to open data block: %v", err)
+						respond(cmds, comm)
+						continue
+					}
+
+					fileInfo, _ := file.Stat()
+					fileFD := int(file.Fd())
+
+					_, err = SpliceFileToSocket(fileFD, currentFD, fileInfo.Size())
+					file.Close()
+
+					if err != nil {
+						log.Printf("Kernel splice transmission error: %v", err)
+					}
+					continue
+				}
+
+				respond(cmds, comm)
+			}
 		}
 	}
 }

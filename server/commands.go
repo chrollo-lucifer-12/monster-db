@@ -33,12 +33,14 @@ func readCommands(client io.ReadWriter) (core.RedisCmds, error) {
 			if netErr, ok := err.(net.Error); ok && netErr.Timeout() {
 				break
 			}
-
+			if err == io.EOF {
+				return nil, err
+			}
 			return nil, err
 		}
 
-		if n == 0 {
-			return nil, io.EOF
+		if n < len(chunk) {
+			break
 		}
 	}
 
