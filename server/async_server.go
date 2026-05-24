@@ -131,6 +131,7 @@ func RunAsyncServer() error {
 				cmds, err := readCommands(comm)
 
 				if err != nil {
+					log.Println(err.Error())
 					syscall.EpollCtl(epollFD, syscall.EPOLL_CTL_DEL, int(events[i].Fd), nil)
 					syscall.Close(int(events[i].Fd))
 					con_clients -= 1
