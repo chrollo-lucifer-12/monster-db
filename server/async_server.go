@@ -86,18 +86,14 @@ func RunAsyncServer() error {
 
 	for {
 
-		if time.Since(lastCron) >= cronFrequency {
-			serverCron()
-			lastCron = time.Now()
-		}
+		now := time.Now()
+		nextCronTime := lastCron.Add(cronFrequency)
 
-		timeout := int(time.Until(lastCron.Add(cronFrequency)).Milliseconds())
-
-		if timeout < 0 {
+		var timeout int
+		if now.After(nextCronTime) {
 			timeout = 0
-		}
-		if timeout > 100 {
-			timeout = 100
+		} else {
+			timeout = int(time.Until(nextCronTime).Milliseconds())
 		}
 
 		nevents, e := unix.EpollWait(epollFD, events[:], timeout)
@@ -175,6 +171,11 @@ func RunAsyncServer() error {
 
 				respond(cmds, comm)
 			}
+		}
+
+		if time.Since(lastCron) >= cronFrequency {
+			serverCron()
+			lastCron = time.Now()
 		}
 	}
 }
