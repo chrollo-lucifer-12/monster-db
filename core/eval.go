@@ -154,7 +154,7 @@ func evalEXPIRE(args []string) []byte {
 }
 
 func evalBGREWRITE(args []string) []byte {
-	cmd := exec.Command("go", "run", ".", "--rewrite-aof")
+	cmd := exec.Command("go", "run", "main.go", "--rewrite-aof")
 
 	err := cmd.Start()
 	if err != nil {

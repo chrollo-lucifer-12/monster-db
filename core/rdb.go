@@ -82,7 +82,7 @@ func SaveRDB() {
 
 func TriggerRDB() []byte {
 
-	cmd := exec.Command("go", "run", ".", "--rdb-dump")
+	cmd := exec.Command("go", "run", "main.go", "--rdb-dump")
 
 	err := cmd.Start()
 	if err != nil {

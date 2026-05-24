@@ -3,6 +3,7 @@ package server
 import (
 	"fmt"
 	"io"
+	"net"
 	"strings"
 
 	"github.com/redis-server/core"
@@ -18,14 +19,34 @@ func toArrayString(ai []interface{}) ([]string, error) {
 }
 
 func readCommands(client io.ReadWriter) (core.RedisCmds, error) {
-	var buf []byte = make([]byte, 512)
 
-	n, err := client.Read(buf[:])
-	if err != nil {
-		return nil, err
+	var accumulatedData []byte
+	chunk := make([]byte, 512)
+
+	for {
+		n, err := client.Read(chunk)
+		if n > 0 {
+			accumulatedData = append(accumulatedData, chunk[:n]...)
+		}
+
+		if err != nil {
+			if netErr, ok := err.(net.Error); ok && netErr.Timeout() {
+				break
+			}
+
+			return nil, err
+		}
+
+		if n == 0 {
+			return nil, io.EOF
+		}
 	}
 
-	values, err := resp.Decode(buf[:n])
+	if len(accumulatedData) == 0 {
+		return nil, nil
+	}
+
+	values, err := resp.Decode(accumulatedData)
 
 	if err != nil {
 		return nil, err

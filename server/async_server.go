@@ -3,6 +3,7 @@ package server
 import (
 	"log"
 	"net"
+	"runtime"
 	"syscall"
 	"time"
 
@@ -17,6 +18,10 @@ var rdbFrequency time.Duration = 900 * time.Second
 var lastRdbExecTime time.Time = time.Now()
 
 func RunAsyncServer() error {
+
+	runtime.LockOSThread()
+	defer runtime.UnlockOSThread()
+
 	log.Println("starting server on ", config.Host, config.Port)
 
 	max_clients := 20_000
@@ -53,8 +58,10 @@ func RunAsyncServer() error {
 
 	defer syscall.Close(epollFD)
 
+	const EPOLLET uint32 = 1 << 31
+
 	var socketServerEvent syscall.EpollEvent = syscall.EpollEvent{
-		Events: syscall.EPOLLIN,
+		Events: uint32(syscall.EPOLLIN) | EPOLLET,
 		Fd:     int32(serverFD),
 	}
 
@@ -95,28 +102,36 @@ func RunAsyncServer() error {
 
 		for i := 0; i < nevents; i++ {
 			if int(events[i].Fd) == serverFD {
-				fd, _, err := syscall.Accept(serverFD)
-				if err != nil {
-					log.Fatal(err)
-					return err
-				}
+				for {
+					fd, _, err := syscall.Accept(serverFD)
+					if err != nil {
+						if err == syscall.EAGAIN || err == syscall.EWOULDBLOCK {
+							break
+						}
+						log.Fatal(err)
+						return err
+					}
 
-				con_clients++
-				syscall.SetNonblock(fd, true)
+					con_clients++
+					syscall.SetNonblock(fd, true)
 
-				var socketServerEvent syscall.EpollEvent = syscall.EpollEvent{
-					Events: syscall.EPOLLIN,
-					Fd:     int32(fd),
-				}
+					var socketServerEvent syscall.EpollEvent = syscall.EpollEvent{
+						Events: syscall.EPOLLIN | EPOLLET,
+						Fd:     int32(fd),
+					}
 
-				if err := syscall.EpollCtl(epollFD, syscall.EPOLL_CTL_ADD, fd, &socketServerEvent); err != nil {
-					log.Fatal(err)
+					if err := syscall.EpollCtl(epollFD, syscall.EPOLL_CTL_ADD, fd, &socketServerEvent); err != nil {
+						syscall.Close(fd)
+						con_clients -= 1
+						log.Fatal(err)
+					}
 				}
 			} else {
 				comm := core.FDComm{Fd: int(events[i].Fd)}
 				cmds, err := readCommands(comm)
 
 				if err != nil {
+					syscall.EpollCtl(epollFD, syscall.EPOLL_CTL_DEL, int(events[i].Fd), nil)
 					syscall.Close(int(events[i].Fd))
 					con_clients -= 1
 					continue
