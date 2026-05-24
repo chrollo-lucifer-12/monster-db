@@ -22,11 +22,13 @@ func dumpkey(fp *os.File, k string, obj *Obj) {
 		obj.Value.(string),
 	})
 
-	if obj.ExpiresAt > 0 {
+	exp, isExpirySet := getExpiry(obj)
+
+	if isExpirySet {
 		writeCommand(fp, []string{
 			"EXPIRE",
 			k,
-			strconv.FormatInt(obj.ExpiresAt, 10),
+			strconv.FormatInt(int64(exp), 10),
 		})
 	}
 }

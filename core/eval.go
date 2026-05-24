@@ -82,7 +82,7 @@ func evalGET(args []string) []byte {
 		return RESP_NIL
 	}
 
-	if obj.ExpiresAt != -1 && obj.ExpiresAt <= time.Now().UnixMilli() {
+	if hasExpired(obj) {
 		return RESP_NIL
 	}
 
@@ -102,15 +102,17 @@ func evalTTL(args []string) []byte {
 		return RESP_MINUS_TWO
 	}
 
-	if obj.ExpiresAt == -1 {
+	exp, isExpirySet := getExpiry(obj)
+
+	if !isExpirySet {
 		return RESP_MINUS_ONE
 	}
 
-	durationMs := obj.ExpiresAt - time.Now().UnixMilli()
-
-	if durationMs < 0 {
+	if uint64(time.Now().UnixMilli()) > exp {
 		return RESP_MINUS_TWO
 	}
+
+	durationMs := exp - uint64(time.Now().UnixMilli())
 
 	return resp.Encode((durationMs / 1000), false)
 }
@@ -146,7 +148,7 @@ func evalEXPIRE(args []string) []byte {
 		return RESP_ZERO
 	}
 
-	obj.ExpiresAt = time.Now().UnixMilli() + exDurationSec*1000
+	setExpiry(obj, exDurationSec*1000)
 
 	return RESP_ONE
 }

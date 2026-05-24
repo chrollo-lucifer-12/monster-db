@@ -6,7 +6,6 @@ import (
 	"log"
 	"os"
 	"os/exec"
-	"time"
 
 	"github.com/redis-server/config"
 )
@@ -34,7 +33,7 @@ func LoadRDB() {
 		typeBuf := make([]byte, 1)
 		fp.Read(typeBuf)
 
-		var expiresAt int64
+		var expiresAt uint32
 		binary.Read(fp, binary.LittleEndian, &expiresAt)
 
 		var valLen int32
@@ -44,9 +43,9 @@ func LoadRDB() {
 		fp.Read(value)
 
 		store[string(key)] = &Obj{
-			TypeEncoding: typeBuf[0],
-			ExpiresAt:    expiresAt,
-			Value:        value,
+			TypeEncoding:   typeBuf[0],
+			LastAccessedAt: expiresAt,
+			Value:          value,
 		}
 	}
 }
@@ -63,7 +62,7 @@ func SaveRDB() {
 	for k, obj := range store {
 		keyBytes := []byte(k)
 
-		if obj.ExpiresAt != 0 && time.Now().Unix() > obj.ExpiresAt {
+		if hasExpired(obj) {
 			continue
 		}
 
@@ -72,7 +71,7 @@ func SaveRDB() {
 
 		fp.Write([]byte{obj.TypeEncoding})
 
-		binary.Write(fp, binary.LittleEndian, obj.ExpiresAt)
+		binary.Write(fp, binary.LittleEndian, obj.LastAccessedAt)
 
 		binary.Write(fp, binary.LittleEndian, int32(len(obj.Value.([]byte))))
 		fp.Write(obj.Value.([]byte))

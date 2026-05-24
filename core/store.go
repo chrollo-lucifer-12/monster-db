@@ -2,34 +2,39 @@ package core
 
 import (
 	"log"
-	"time"
 
 	"github.com/redis-server/config"
 )
 
 var store map[string]*Obj
+var expires map[*Obj]uint64
 
 func Init() {
 	store = make(map[string]*Obj)
+	expires = make(map[*Obj]uint64)
 }
 
-func NewObj(value interface{}, durationMs int64, oType uint8, oEnc uint8) *Obj {
-	var expiresAt int64 = -1
-	if durationMs > 0 {
-		expiresAt = time.Now().UnixMilli() + durationMs
+func NewObj(value interface{}, expDurationMs int64, oType uint8, oEnc uint8) *Obj {
+
+	obj := Obj{
+		Value:          value,
+		TypeEncoding:   oType | oEnc,
+		LastAccessedAt: getCurrentClock(),
 	}
 
-	return &Obj{
-		Value:        value,
-		TypeEncoding: oType | oEnc,
-		ExpiresAt:    expiresAt,
+	if expDurationMs > 0 {
+		setExpiry(&obj, expDurationMs)
 	}
+
+	return &obj
 }
 
 func Put(k string, obj *Obj) {
 	if len(store) >= config.KeyLimit {
 		evict()
 	}
+
+	obj.LastAccessedAt = getCurrentClock()
 	store[k] = obj
 
 	if KeyspaceStat[0] == nil {
@@ -41,43 +46,23 @@ func Put(k string, obj *Obj) {
 func Get(k string) *Obj {
 	v := store[k]
 	if v != nil {
-		if v.ExpiresAt != -1 && v.ExpiresAt <= time.Now().UnixMilli() {
+		if hasExpired(v) {
 			Del(k)
 			return nil
 		}
 	}
+	v.LastAccessedAt = getCurrentClock()
 	return v
 }
 
 func Del(k string) bool {
-	if _, ok := store[k]; ok {
+	if obj, ok := store[k]; ok {
 		delete(store, k)
+		delete(expires, obj)
 		KeyspaceStat[0]["keys"]--
 		return true
 	}
 	return false
-}
-
-func expireSample() float32 {
-	var limit int = 20
-	var expiredCount int = 0
-
-	for key, obj := range store {
-		if obj.ExpiresAt != -1 {
-			limit--
-
-			if obj.ExpiresAt <= time.Now().UnixMilli() {
-				Del(key)
-				expiredCount++
-			}
-		}
-
-		if limit == 0 {
-			break
-		}
-	}
-
-	return float32(expiredCount) / float32(20.0)
 }
 
 func DeleteExpiredKey() {
