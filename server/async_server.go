@@ -3,12 +3,13 @@ package server
 import (
 	"log"
 	"net"
+	"os"
 	"runtime"
-	"syscall"
 	"time"
 
 	"github.com/redis-server/config"
 	"github.com/redis-server/core"
+	"golang.org/x/sys/unix"
 )
 
 var con_clients int = 0
@@ -16,6 +17,60 @@ var cronFrequency time.Duration = 10 * time.Second
 var lastCronExecTime time.Time = time.Now()
 var rdbFrequency time.Duration = 900 * time.Second
 var lastRdbExecTime time.Time = time.Now()
+
+func SpliceFileToSocket(fileFD int, clientFD int, size int64) (int64, error) {
+
+	var pipeFDs [2]int
+	err := unix.Pipe(pipeFDs[:])
+
+	if err != nil {
+		return 0, err
+	}
+
+	defer unix.Close(pipeFDs[0])
+	defer unix.Close(pipeFDs[1])
+
+	var totalSpliced int64 = 0
+
+	spliceFlags := unix.SPLICE_F_MOVE | unix.SPLICE_F_NONBLOCK
+
+	for totalSpliced < size {
+		remaining := size - totalSpliced
+
+		nBytesIntoPipe, err := unix.Splice(fileFD, nil, pipeFDs[1], nil, int(remaining), spliceFlags)
+		if err != nil {
+			if err == unix.EAGAIN || err == unix.EWOULDBLOCK {
+				continue
+			}
+			return totalSpliced, err
+		}
+		if nBytesIntoPipe == 0 {
+			break
+		}
+
+		var pipeBytesWritten int64 = 0
+		for pipeBytesWritten < nBytesIntoPipe {
+			nBytesOutToSocket, err := unix.Splice(
+				pipeFDs[0],
+				nil,
+				clientFD,
+				nil,
+				int(nBytesIntoPipe-pipeBytesWritten),
+				spliceFlags,
+			)
+			if err != nil {
+				if err == unix.EAGAIN || err == unix.EWOULDBLOCK {
+					continue
+				}
+				return totalSpliced, err
+			}
+			pipeBytesWritten += nBytesOutToSocket
+		}
+		totalSpliced += nBytesIntoPipe
+	}
+
+	return totalSpliced, nil
+}
 
 func RunAsyncServer() error {
 
@@ -26,46 +81,46 @@ func RunAsyncServer() error {
 
 	max_clients := 20_000
 
-	var events []syscall.EpollEvent = make([]syscall.EpollEvent, max_clients)
+	var events []unix.EpollEvent = make([]unix.EpollEvent, max_clients)
 
-	serverFD, err := syscall.Socket(syscall.AF_INET, syscall.O_NONBLOCK|syscall.SOCK_STREAM, 0)
+	serverFD, err := unix.Socket(unix.AF_INET, unix.O_NONBLOCK|unix.SOCK_STREAM, 0)
 	if err != nil {
 		return err
 	}
 
-	defer syscall.Close(serverFD)
+	defer unix.Close(serverFD)
 
-	if err = syscall.SetNonblock(serverFD, true); err != nil {
+	if err = unix.SetNonblock(serverFD, true); err != nil {
 		return err
 	}
 
 	ip4 := net.ParseIP(config.Host)
-	if err = syscall.Bind(serverFD, &syscall.SockaddrInet4{
+	if err = unix.Bind(serverFD, &unix.SockaddrInet4{
 		Port: config.Port,
 		Addr: [4]byte{ip4[0], ip4[1], ip4[2], ip4[3]},
 	}); err != nil {
 		return err
 	}
 
-	if err = syscall.Listen(serverFD, max_clients); err != nil {
+	if err = unix.Listen(serverFD, max_clients); err != nil {
 		return err
 	}
 
-	epollFD, err := syscall.EpollCreate1(0)
+	epollFD, err := unix.EpollCreate1(0)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	defer syscall.Close(epollFD)
+	defer unix.Close(epollFD)
 
 	const EPOLLET uint32 = 1 << 31
 
-	var socketServerEvent syscall.EpollEvent = syscall.EpollEvent{
-		Events: uint32(syscall.EPOLLIN) | EPOLLET,
+	var socketServerEvent unix.EpollEvent = unix.EpollEvent{
+		Events: uint32(unix.EPOLLIN) | EPOLLET,
 		Fd:     int32(serverFD),
 	}
 
-	if err = syscall.EpollCtl(epollFD, syscall.EPOLL_CTL_ADD, serverFD, &socketServerEvent); err != nil {
+	if err = unix.EpollCtl(epollFD, unix.EPOLL_CTL_ADD, serverFD, &socketServerEvent); err != nil {
 		return err
 	}
 
@@ -95,17 +150,18 @@ func RunAsyncServer() error {
 			timeout = 0
 		}
 
-		nevents, e := syscall.EpollWait(epollFD, events[:], int(timeout.Milliseconds()))
+		nevents, e := unix.EpollWait(epollFD, events[:], int(timeout.Milliseconds()))
 		if e != nil {
 			continue
 		}
 
 		for i := 0; i < nevents; i++ {
-			if int(events[i].Fd) == serverFD {
+			currentFD := int(events[i].Fd)
+			if currentFD == serverFD {
 				for {
-					fd, _, err := syscall.Accept(serverFD)
+					fd, _, err := unix.Accept(serverFD)
 					if err != nil {
-						if err == syscall.EAGAIN || err == syscall.EWOULDBLOCK {
+						if err == unix.EAGAIN || err == unix.EWOULDBLOCK {
 							break
 						}
 						log.Fatal(err)
@@ -113,15 +169,15 @@ func RunAsyncServer() error {
 					}
 
 					con_clients++
-					syscall.SetNonblock(fd, true)
+					unix.SetNonblock(fd, true)
 
-					var socketServerEvent syscall.EpollEvent = syscall.EpollEvent{
-						Events: syscall.EPOLLIN | EPOLLET,
+					var socketServerEvent unix.EpollEvent = unix.EpollEvent{
+						Events: unix.EPOLLIN | EPOLLET,
 						Fd:     int32(fd),
 					}
 
-					if err := syscall.EpollCtl(epollFD, syscall.EPOLL_CTL_ADD, fd, &socketServerEvent); err != nil {
-						syscall.Close(fd)
+					if err := unix.EpollCtl(epollFD, unix.EPOLL_CTL_ADD, fd, &socketServerEvent); err != nil {
+						unix.Close(fd)
 						con_clients -= 1
 						log.Fatal(err)
 					}
@@ -132,11 +188,32 @@ func RunAsyncServer() error {
 
 				if err != nil {
 					log.Println(err.Error())
-					syscall.EpollCtl(epollFD, syscall.EPOLL_CTL_DEL, int(events[i].Fd), nil)
-					syscall.Close(int(events[i].Fd))
+					unix.EpollCtl(epollFD, unix.EPOLL_CTL_DEL, int(events[i].Fd), nil)
+					unix.Close(int(events[i].Fd))
 					con_clients -= 1
 					continue
 				}
+
+				if len(cmds) > 0 && cmds[0].Cmd == "GET_LARGE" {
+					file, err := os.Open("/var/redis/data/massive_payload.dat")
+					if err != nil {
+						log.Printf("Failed to open data block: %v", err)
+						respond(cmds, comm)
+						continue
+					}
+
+					fileInfo, _ := file.Stat()
+					fileFD := int(file.Fd())
+
+					_, err = SpliceFileToSocket(fileFD, currentFD, fileInfo.Size())
+					file.Close()
+
+					if err != nil {
+						log.Printf("Kernel splice transmission error: %v", err)
+					}
+					continue
+				}
+
 				respond(cmds, comm)
 			}
 		}
