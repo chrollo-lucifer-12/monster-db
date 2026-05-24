@@ -23,7 +23,10 @@ func (a ByIdleTime) Swap(i, j int) {
 }
 
 func (a ByIdleTime) Less(i, j int) bool {
-	return getIdleTime(a[i].lastAccessedAt) > getIdleTime(a[j].lastAccessedAt)
+	if a[i] == nil || a[j] == nil {
+		return false
+	}
+	return a[i].lastAccessedAt < a[j].lastAccessedAt
 }
 
 func (pq *EvictionPool) Push(key string, lastAccessedAt uint32) {
@@ -35,15 +38,15 @@ func (pq *EvictionPool) Push(key string, lastAccessedAt uint32) {
 
 	item := &PoolItem{key: key, lastAccessedAt: lastAccessedAt}
 
-	if len(pq.pool) < 16 {
-		pq.keyset[key] = item
-		pq.pool = append(pq.pool, item)
+	pq.pool = append(pq.pool, item)
+	pq.keyset[key] = item
 
-		sort.Sort(ByIdleTime(pq.pool))
-	} else if lastAccessedAt > pq.pool[len(pq.pool)-1].lastAccessedAt {
-		pq.pool = pq.pool[1:]
-		pq.keyset[key] = item
-		pq.pool = append(pq.pool, item)
+	sort.Sort(ByIdleTime(pq.pool))
+
+	if len(pq.pool) > cap(pq.pool) {
+		evicted := pq.pool[len(pq.pool)-1]
+		pq.pool = pq.pool[:len(pq.pool)-1]
+		delete(pq.keyset, evicted.key)
 	}
 }
 
@@ -58,9 +61,9 @@ func (pq *EvictionPool) Pop() *PoolItem {
 	return item
 }
 
-func NewEvictionPool(size int) *EvictionPool {
+func newEvictionPool(size int) *EvictionPool {
 	return &EvictionPool{
-		pool:   make([]*PoolItem, size),
+		pool:   make([]*PoolItem, 0, size),
 		keyset: make(map[string]*PoolItem),
 	}
 }

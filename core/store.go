@@ -8,10 +8,12 @@ import (
 
 var store map[string]*Obj
 var expires map[*Obj]uint64
+var ePool *EvictionPool
 
 func Init() {
 	store = make(map[string]*Obj)
 	expires = make(map[*Obj]uint64)
+	ePool = newEvictionPool(16)
 }
 
 func NewObj(value interface{}, expDurationMs int64, oType uint8, oEnc uint8) *Obj {
@@ -56,6 +58,7 @@ func Get(k string) *Obj {
 }
 
 func Del(k string) bool {
+	log.Print("deleting key :", k)
 	if obj, ok := store[k]; ok {
 		delete(store, k)
 		delete(expires, obj)

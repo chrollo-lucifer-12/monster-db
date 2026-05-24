@@ -4,8 +4,6 @@ import (
 	"github.com/redis-server/config"
 )
 
-var EPool *EvictionPool
-
 func getIdleTime(lastAccessedAt uint32) uint32 {
 	c := getCurrentClock()
 	if c >= lastAccessedAt {
@@ -18,7 +16,7 @@ func populateEvictionPool() {
 	sampleSize := 5
 
 	for k := range store {
-		EPool.Push(k, store[k].LastAccessedAt)
+		ePool.Push(k, store[k].LastAccessedAt)
 		sampleSize--
 		if sampleSize == 0 {
 			break
@@ -50,8 +48,8 @@ func evictAllkeysLRU() {
 
 	evictCount := int16(config.EvictionRatio * float64(config.KeyLimit))
 
-	for i := 0; i < int(evictCount) && len(EPool.pool) > 0; i++ {
-		item := EPool.Pop()
+	for i := 0; i < int(evictCount) && len(ePool.pool) > 0; i++ {
+		item := ePool.Pop()
 		if item == nil {
 			return
 		}
