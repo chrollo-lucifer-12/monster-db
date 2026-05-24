@@ -19,6 +19,8 @@ var lastRdbExecTime time.Time = time.Now()
 func RunAsyncServer() error {
 	log.Println("starting server on ", config.Host, config.Port)
 
+	core.EPool = core.NewEvictionPool(16)
+
 	max_clients := 20_000
 
 	var events []syscall.EpollEvent = make([]syscall.EpollEvent, max_clients)

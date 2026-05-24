@@ -33,6 +33,7 @@ func main() {
 	//	core.RESTOREAOF()
 	setupFlags()
 	log.Println("starting the server...")
+
 	err := server.RunAsyncServer()
 
 	if err != nil {
