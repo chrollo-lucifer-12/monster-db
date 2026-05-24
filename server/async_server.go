@@ -11,9 +11,9 @@ import (
 )
 
 var con_clients int = 0
-var cronFrequency time.Duration = 1 * time.Second
+var cronFrequency time.Duration = 10 * time.Second
 var lastCronExecTime time.Time = time.Now()
-var rdbFrequency time.Duration = 5 * time.Second
+var rdbFrequency time.Duration = 900 * time.Second
 var lastRdbExecTime time.Time = time.Now()
 
 func RunAsyncServer() error {
@@ -63,18 +63,32 @@ func RunAsyncServer() error {
 	}
 
 	for {
+		now := time.Now()
+		nextRDB := lastRdbExecTime.Add(rdbFrequency)
+		nextCron := lastCronExecTime.Add(cronFrequency)
 
-		if time.Now().After(lastRdbExecTime.Add(rdbFrequency)) {
+		next := nextRDB
+
+		if nextCron.Before(next) {
+			next = nextCron
+		}
+
+		if now.After(lastRdbExecTime.Add(rdbFrequency)) {
 			core.TriggerRDB()
-			lastRdbExecTime = time.Now()
+			lastRdbExecTime = now
 		}
 
-		if time.Now().After(lastCronExecTime.Add(cronFrequency)) {
+		if now.After(lastCronExecTime.Add(cronFrequency)) {
 			core.DeleteExpiredKey()
-			lastCronExecTime = time.Now()
+			lastCronExecTime = now
 		}
 
-		nevents, e := syscall.EpollWait(epollFD, events[:], -1)
+		timeout := time.Until(next)
+		if timeout < 0 {
+			timeout = 0
+		}
+
+		nevents, e := syscall.EpollWait(epollFD, events[:], int(timeout.Milliseconds()))
 		if e != nil {
 			continue
 		}
