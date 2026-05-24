@@ -18,6 +18,12 @@ func setupFlags() {
 }
 
 func main() {
+
+	if len(os.Args) > 1 && os.Args[1] == "--rdb-dump" {
+		core.SaveRDB()
+		return
+	}
+
 	if len(os.Args) > 1 && os.Args[1] == "--rewrite-aof" {
 		core.DumpAllAOF()
 		return
@@ -27,5 +33,9 @@ func main() {
 	//	core.RESTOREAOF()
 	setupFlags()
 	log.Println("starting the server...")
-	server.RunAsyncServer()
+	err := server.RunAsyncServer()
+
+	if err != nil {
+		log.Panic(err)
+	}
 }

@@ -13,6 +13,8 @@ import (
 var con_clients int = 0
 var cronFrequency time.Duration = 1 * time.Second
 var lastCronExecTime time.Time = time.Now()
+var rdbFrequency time.Duration = 5 * time.Second
+var lastRdbExecTime time.Time = time.Now()
 
 func RunAsyncServer() error {
 	log.Println("starting server on ", config.Host, config.Port)
@@ -61,6 +63,11 @@ func RunAsyncServer() error {
 	}
 
 	for {
+
+		if time.Now().After(lastRdbExecTime.Add(rdbFrequency)) {
+			core.TriggerRDB()
+			lastRdbExecTime = time.Now()
+		}
 
 		if time.Now().After(lastCronExecTime.Add(cronFrequency)) {
 			core.DeleteExpiredKey()
