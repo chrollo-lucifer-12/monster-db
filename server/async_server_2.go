@@ -6,8 +6,36 @@ import (
 	"runtime"
 
 	"github.com/redis-server/config"
+	"github.com/redis-server/core"
 	"golang.org/x/sys/unix"
 )
+
+type Client struct {
+	Fd       int
+	QueryBuf []byte
+	ReplyBuf []byte
+}
+
+type ReplyBufferWrapper struct {
+	client *Client
+}
+
+func (w ReplyBufferWrapper) Write(p []byte) (n int, err error) {
+	w.client.ReplyBuf = append(w.client.ReplyBuf, p...)
+	return len(p), nil
+}
+
+func (w ReplyBufferWrapper) Read(p []byte) (n int, err error) {
+	return 0, nil
+}
+
+func NewClient(fd int) *Client {
+	return &Client{
+		Fd:       fd,
+		QueryBuf: make([]byte, 0),
+		ReplyBuf: make([]byte, 0),
+	}
+}
 
 func AcceptTcpHandler(el *EventLoop, serverFD int, clientData interface{}) {
 	for {
@@ -35,7 +63,9 @@ func AcceptTcpHandler(el *EventLoop, serverFD int, clientData interface{}) {
 			continue
 		}
 
-		err = el.AddFileEvent(fd, unix.EPOLLIN, ReadQueryFromClient, nil)
+		client := NewClient(fd)
+
+		err = el.AddFileEvent(fd, unix.EPOLLIN, ReadQueryFromClient, &client)
 		if err != nil {
 			log.Println("Failed to add client to epoll: ", err)
 			unix.Close(fd)
@@ -45,8 +75,66 @@ func AcceptTcpHandler(el *EventLoop, serverFD int, clientData interface{}) {
 	}
 }
 
+func freeClient(loop *EventLoop, client *Client) {
+	loop.DeleteFileEvent(client.Fd, unix.EPOLLIN|unix.EPOLLOUT)
+	unix.Close(client.Fd)
+	con_clients--
+}
+
 func ReadQueryFromClient(loop *EventLoop, fd int, clientData interface{}) {
-	log.Printf("Data available to read on client FD: %d\n", fd)
+	client := clientData.(*Client)
+
+	readBuffer := make([]byte, 4096)
+
+	for {
+		n, err := unix.Read(fd, readBuffer)
+		if err != nil {
+
+			if err == unix.EAGAIN || err == unix.EWOULDBLOCK {
+				break
+			}
+
+			log.Printf("Read error on FD %d: %v\n", fd, err)
+			freeClient(loop, client)
+			return
+		}
+
+		if n == 0 {
+			log.Printf("Client on FD %d disconnected gracefully", fd)
+			freeClient(loop, client)
+			return
+		}
+
+		client.QueryBuf = append(client.QueryBuf, readBuffer[:n]...)
+	}
+}
+
+func SendReplyToClient(loop *EventLoop, fd int, clientData interface{}) {
+	log.Printf("Ready to push data back to client FD: %d\n", fd)
+}
+
+func processClientQueryBuffer(loop *EventLoop, client *Client) {
+	comm := core.FDComm{Fd: client.Fd}
+
+	cmds, err := readCommands(comm)
+
+	if err != nil {
+		log.Println("Parsing error:", err)
+		freeClient(loop, client)
+		return
+	}
+
+	if len(cmds) == 0 {
+		return
+	}
+
+	client.QueryBuf = client.QueryBuf[:0]
+
+	writerWrapper := ReplyBufferWrapper{client: client}
+
+	respond(cmds, writerWrapper)
+
+	loop.AddFileEvent(client.Fd, unix.EPOLLOUT, SendReplyToClient, client)
 }
 
 func RunAsyncServer2() error {
