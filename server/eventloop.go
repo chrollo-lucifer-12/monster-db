@@ -1,6 +1,10 @@
 package server
 
-import "golang.org/x/sys/unix"
+import (
+	"log"
+
+	"golang.org/x/sys/unix"
+)
 
 type FileProc func(loop *EventLoop, fd int, clientData interface{})
 
@@ -69,6 +73,40 @@ func (el *EventLoop) DeleteFileEvent(fd int, mask uint32) {
 			Fd:     int32(fd),
 		}
 		unix.EpollCtl(el.EpollFD, unix.EPOLL_CTL_MOD, fd, &ev)
+	}
+}
+
+func (el *EventLoop) Main() {
+	el.Stop = false
+
+	for !el.Stop {
+		nevents, err := unix.EpollWait(el.EpollFD, el.Fired, 100)
+
+		if err != nil {
+			if err == unix.EINTR {
+				continue
+			}
+			log.Println("EpollWait error: ", err)
+			break
+		}
+
+		for i := 0; i < nevents; i++ {
+			fd := int(el.Fired[i].Fd)
+			mask := el.Fired[i].Events
+
+			fe, exists := el.Events[fd]
+			if !exists {
+				continue
+			}
+
+			if mask&unix.EPOLLIN != 0 && fe.ReadProc != nil {
+				fe.ReadProc(el, fd, fe.ClientData)
+			}
+
+			if mask&unix.EPOLLOUT != 0 && fe.WriteProc != nil {
+				fe.WriteProc(el, fd, fe.ClientData)
+			}
+		}
 	}
 }
 
