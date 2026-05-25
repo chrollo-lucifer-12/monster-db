@@ -4,10 +4,17 @@ import (
 	"log"
 	"net"
 	"runtime"
+	"time"
 
 	"github.com/redis-server/config"
 	"github.com/redis-server/core"
 	"golang.org/x/sys/unix"
+)
+
+var (
+	con_clients                = 0
+	lastRDB      time.Time     = time.Now()
+	rdbFrequency time.Duration = 900 * time.Second
 )
 
 type Client struct {
@@ -37,16 +44,31 @@ func NewClient(fd int) *Client {
 	}
 }
 
+func ServerCronHandler(loop *EventLoop, id int64, clientData interface{}) int {
+	now := time.Now()
+
+	if now.Sub(lastRDB) > rdbFrequency {
+		core.TriggerRDB()
+		lastRDB = now
+	}
+
+	core.DeleteExpiredKey()
+
+	return 1000
+}
+
 func AcceptTcpHandler(el *EventLoop, serverFD int, clientData interface{}) {
+
 	for {
 		fd, _, err := unix.Accept(serverFD)
 		if err != nil {
 			if err == unix.EAGAIN || err == unix.EWOULDBLOCK {
+
 				break
 			}
 
 			if err == unix.EMFILE || err == unix.ENFILE {
-				log.Println("FD limit reached, cannot accept more clients")
+
 				break
 			}
 
@@ -65,7 +87,7 @@ func AcceptTcpHandler(el *EventLoop, serverFD int, clientData interface{}) {
 
 		client := NewClient(fd)
 
-		err = el.AddFileEvent(fd, unix.EPOLLIN, ReadQueryFromClient, &client)
+		err = el.AddFileEvent(fd, unix.EPOLLIN, ReadQueryFromClient, client)
 		if err != nil {
 			log.Println("Failed to add client to epoll: ", err)
 			unix.Close(fd)
@@ -100,23 +122,46 @@ func ReadQueryFromClient(loop *EventLoop, fd int, clientData interface{}) {
 		}
 
 		if n == 0 {
-			log.Printf("Client on FD %d disconnected gracefully", fd)
+			//	log.Printf("Client on FD %d disconnected gracefully", fd)
 			freeClient(loop, client)
 			return
 		}
 
 		client.QueryBuf = append(client.QueryBuf, readBuffer[:n]...)
+
+		processClientQueryBuffer(loop, client)
 	}
 }
 
 func SendReplyToClient(loop *EventLoop, fd int, clientData interface{}) {
-	log.Printf("Ready to push data back to client FD: %d\n", fd)
+	client := clientData.(*Client)
+
+	if len(client.ReplyBuf) == 0 {
+		loop.DeleteFileEvent(fd, unix.EPOLLOUT)
+		return
+	}
+
+	n, err := unix.Write(fd, client.ReplyBuf)
+	if err != nil {
+		if err == unix.EAGAIN || err == unix.EWOULDBLOCK {
+			return
+		}
+
+		log.Printf("Write error on FD %d: %v\n", fd, err)
+		freeClient(loop, client)
+		return
+	}
+
+	client.ReplyBuf = client.ReplyBuf[n:]
+
+	if len(client.ReplyBuf) == 0 {
+		loop.DeleteFileEvent(fd, unix.EPOLLOUT)
+	}
 }
 
 func processClientQueryBuffer(loop *EventLoop, client *Client) {
-	comm := core.FDComm{Fd: client.Fd}
 
-	cmds, err := readCommands(comm)
+	cmds, err := readCommands(client.QueryBuf)
 
 	if err != nil {
 		log.Println("Parsing error:", err)
@@ -175,6 +220,8 @@ func RunAsyncServer2() error {
 	if err != nil {
 		return err
 	}
+
+	loop.AddTimeEvent(1000, ServerCronHandler, nil)
 
 	loop.Main()
 

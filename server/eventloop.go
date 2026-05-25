@@ -2,9 +2,19 @@ package server
 
 import (
 	"log"
+	"time"
 
 	"golang.org/x/sys/unix"
 )
+
+type TimeProc func(loop *EventLoop, id int64, clientData interface{}) int
+
+type TimeEvent struct {
+	ID         int64
+	When       time.Time
+	Proc       TimeProc
+	ClientData interface{}
+}
 
 type FileProc func(loop *EventLoop, fd int, clientData interface{})
 
@@ -16,10 +26,45 @@ type FileEvent struct {
 }
 
 type EventLoop struct {
-	EpollFD int
-	Events  map[int]*FileEvent
-	Fired   []unix.EpollEvent
-	Stop    bool
+	EpollFD         int
+	Events          map[int]*FileEvent
+	Fired           []unix.EpollEvent
+	TimeEvents      []*TimeEvent
+	NextTimeEventID int64
+	Stop            bool
+}
+
+func (el *EventLoop) AddTimeEvent(ms int64, proc TimeProc, clientData interface{}) int64 {
+	id := el.NextTimeEventID
+	el.NextTimeEventID++
+
+	te := &TimeEvent{
+		ID:         id,
+		When:       time.Now().Add(time.Duration(ms) * time.Millisecond),
+		Proc:       proc,
+		ClientData: clientData,
+	}
+
+	el.TimeEvents = append(el.TimeEvents, te)
+	return id
+}
+
+func (loop *EventLoop) processTimeEvents() {
+	now := time.Now()
+	var validTimeEvents []*TimeEvent
+
+	for _, te := range loop.TimeEvents {
+		if now.After(te.When) {
+			retval := te.Proc(loop, te.ID, te.ClientData)
+			if retval != -1 {
+				te.When = time.Now().Add(time.Duration(retval) * time.Millisecond)
+				validTimeEvents = append(validTimeEvents, te)
+			}
+		} else {
+			validTimeEvents = append(validTimeEvents, te)
+		}
+	}
+	loop.TimeEvents = validTimeEvents
 }
 
 func (el *EventLoop) AddFileEvent(fd int, mask uint32, proc FileProc, clientData interface{}) error {
@@ -80,7 +125,28 @@ func (el *EventLoop) Main() {
 	el.Stop = false
 
 	for !el.Stop {
-		nevents, err := unix.EpollWait(el.EpollFD, el.Fired, 100)
+
+		timeoutMs := 100
+
+		if len(el.TimeEvents) > 0 {
+			now := time.Now()
+			shortest := el.TimeEvents[0].When
+
+			for _, te := range el.TimeEvents {
+				if te.When.Before(shortest) {
+					shortest = te.When
+				}
+			}
+
+			diff := int(shortest.Sub(now).Milliseconds())
+			if diff <= 0 {
+				timeoutMs = 0
+			} else {
+				timeoutMs = diff
+			}
+		}
+
+		nevents, err := unix.EpollWait(el.EpollFD, el.Fired, timeoutMs)
 
 		if err != nil {
 			if err == unix.EINTR {
@@ -107,6 +173,8 @@ func (el *EventLoop) Main() {
 				fe.WriteProc(el, fd, fe.ClientData)
 			}
 		}
+
+		el.processTimeEvents()
 	}
 }
 

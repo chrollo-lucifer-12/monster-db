@@ -3,7 +3,6 @@ package core
 import (
 	"encoding/binary"
 	"fmt"
-	"log"
 	"os"
 	"os/exec"
 
@@ -88,8 +87,6 @@ func TriggerRDB() []byte {
 	if err != nil {
 		return RESP_MINUS_ONE
 	}
-
-	log.Println("dump successful")
 
 	return RESP_OK
 }

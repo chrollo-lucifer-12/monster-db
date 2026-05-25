@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log"
 	"os/exec"
 	"strconv"
 	"time"
@@ -216,8 +215,6 @@ func evalLATENCY(args []string) []byte {
 func EvalAndInput(cmds RedisCmds, client io.ReadWriter) {
 	var response []byte
 	buf := bytes.NewBuffer(response)
-
-	log.Println(cmds[len(cmds)-1])
 
 	for _, cmd := range cmds {
 		switch cmd.Cmd {
