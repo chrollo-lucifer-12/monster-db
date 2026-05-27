@@ -7,16 +7,20 @@ import (
 	"runtime"
 	"time"
 
+	"net/http"
+	_ "net/http/pprof"
+
 	"github.com/redis-server/config"
 	"github.com/redis-server/core"
 	"golang.org/x/sys/unix"
 )
 
 var (
-	zmalloc                    = NewZAllocator(512 * 1024 * 1024)
-	con_clients                = 0
-	lastRDB      time.Time     = time.Now()
-	rdbFrequency time.Duration = 900 * time.Second
+	zmalloc                           = NewZAllocator(512 * 1024 * 1024)
+	clientsPendingWrite               = make(map[int]*Client)
+	con_clients                       = 0
+	lastRDB             time.Time     = time.Now()
+	rdbFrequency        time.Duration = 900 * time.Second
 )
 
 type Client struct {
@@ -226,10 +230,19 @@ func processClientQueryBuffer(loop *EventLoop, client *Client) {
 
 	respond(cmds, writerWrapper)
 
-	loop.AddFileEvent(client.Fd, unix.EPOLLOUT, SendReplyToClient, client)
+	if len(client.ReplyBuf) > 0 {
+		clientsPendingWrite[client.Fd] = client
+	}
+
+	// loop.AddFileEvent(client.Fd, unix.EPOLLOUT, SendReplyToClient, client)
 }
 
 func RunAsyncServer() error {
+
+	go func() {
+		log.Println("Starting pprof server on http://localhost:6060")
+		log.Println(http.ListenAndServe("localhost:6060", nil))
+	}()
 
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()

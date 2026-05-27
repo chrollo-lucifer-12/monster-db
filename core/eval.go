@@ -11,7 +11,6 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/redis-server/config"
 	"github.com/redis-server/resp"
 )
 
@@ -166,17 +165,7 @@ func evalBGREWRITE(args []string) []byte {
 	}
 
 	if r1 == 0 {
-		tempFile := config.AOFFILE + ".tmp"
-		fp, _ := os.OpenFile(tempFile, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
-
-		for k, obj := range store {
-			dumpkey(fp, k, obj)
-		}
-
-		fp.Sync()
-		fp.Close()
-
-		os.Rename(tempFile, config.AOFFILE)
+		DumpAllAOF()
 		os.Exit(0)
 	}
 

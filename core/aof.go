@@ -3,7 +3,6 @@ package core
 import (
 	"fmt"
 	"io"
-	"log"
 	"os"
 	"strconv"
 
@@ -34,23 +33,17 @@ func dumpkey(fp *os.File, k string, obj *Obj) {
 }
 
 func DumpAllAOF() {
-	fp, err := os.OpenFile(config.AOFFILE, os.O_CREATE|os.O_WRONLY, os.ModeAppend)
-	if err != nil {
-		fmt.Println("error", err)
-		return
-	}
-
-	defer fp.Close()
-
-	log.Println("rewriting AOF file at ", config.AOFFILE)
+	tempFile := config.AOFFILE + ".tmp"
+	fp, _ := os.OpenFile(tempFile, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
 
 	for k, obj := range store {
 		dumpkey(fp, k, obj)
 	}
 
 	fp.Sync()
+	fp.Close()
 
-	log.Println("AOF file rewrite complete")
+	os.Rename(tempFile, config.AOFFILE)
 }
 
 func Restoreaof() {
