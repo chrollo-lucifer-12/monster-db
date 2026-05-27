@@ -5,10 +5,13 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"os/exec"
+	"log"
+	"os"
 	"strconv"
+	"syscall"
 	"time"
 
+	"github.com/redis-server/config"
 	"github.com/redis-server/resp"
 )
 
@@ -154,13 +157,30 @@ func evalEXPIRE(args []string) []byte {
 }
 
 func evalBGREWRITE(args []string) []byte {
-	cmd := exec.Command("go", "run", "main.go", "--rewrite-aof")
 
-	err := cmd.Start()
-	if err != nil {
-		return RESP_MINUS_ONE
+	r1, _, err1 := syscall.RawSyscall(syscall.SYS_FORK, 0, 0, 0)
+
+	if err1 != 0 {
+		log.Println("Fork failed:", err1)
+		return []byte("-ERR background save failed\r\n")
 	}
 
+	if r1 == 0 {
+		tempFile := config.AOFFILE + ".tmp"
+		fp, _ := os.OpenFile(tempFile, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
+
+		for k, obj := range store {
+			dumpkey(fp, k, obj)
+		}
+
+		fp.Sync()
+		fp.Close()
+
+		os.Rename(tempFile, config.AOFFILE)
+		os.Exit(0)
+	}
+
+	log.Printf("Background save started in child process (PID: %d)\n", r1)
 	return RESP_OK
 }
 
