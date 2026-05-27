@@ -205,7 +205,7 @@ func SendReplyToClient(loop *EventLoop, fd int, clientData interface{}) {
 
 func processClientQueryBuffer(loop *EventLoop, client *Client) {
 
-	cmds, err := readCommands(client.QueryBuf)
+	cmds, bytesConsumed, err := readCommands(client.QueryBuf)
 
 	if err != nil {
 		log.Println("Parsing error:", err)
@@ -213,11 +213,14 @@ func processClientQueryBuffer(loop *EventLoop, client *Client) {
 		return
 	}
 
+	if bytesConsumed > 0 {
+		copy(client.QueryBuf, client.QueryBuf[bytesConsumed:])
+		client.QueryBuf = client.QueryBuf[:len(client.QueryBuf)-bytesConsumed]
+	}
+
 	if len(cmds) == 0 {
 		return
 	}
-
-	client.QueryBuf = client.QueryBuf[:0]
 
 	writerWrapper := ReplyBufferWrapper{client: client}
 

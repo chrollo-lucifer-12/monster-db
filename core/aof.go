@@ -68,7 +68,7 @@ func Restoreaof() {
 		return
 	}
 
-	decoded, err := resp.Decode(data)
+	decoded, _, err := resp.Decode(data)
 
 	fmt.Println(decoded...)
 }

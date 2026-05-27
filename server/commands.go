@@ -17,23 +17,28 @@ func toArrayString(ai []interface{}) ([]string, error) {
 	return as, nil
 }
 
-func readCommands(data []byte) (core.RedisCmds, error) {
+func readCommands(data []byte) (core.RedisCmds, int, error) {
 	if len(data) == 0 {
-		return nil, nil
+		return nil, 0, nil
 	}
 
-	values, err := resp.Decode(data)
+	values, bytesConsumed, err := resp.Decode(data)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 
 	cmds := make([]*core.RedisCmd, 0, len(values))
 
 	for _, value := range values {
 
-		tokens, err := toArrayString(value.([]interface{}))
+		arrayVals, ok := value.([]interface{})
+		if !ok {
+			continue
+		}
+
+		tokens, err := toArrayString(arrayVals)
 		if err != nil {
-			return nil, err
+			return nil, 0, err
 		}
 
 		if len(tokens) == 0 {
@@ -46,7 +51,7 @@ func readCommands(data []byte) (core.RedisCmds, error) {
 		})
 	}
 
-	return cmds, nil
+	return cmds, bytesConsumed, nil
 }
 
 func respondWithError(client io.ReadWriter, err error) {

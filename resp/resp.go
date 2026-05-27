@@ -6,9 +6,16 @@ import (
 	"fmt"
 )
 
+var ErrIncomplete = errors.New("incomplete data")
+
 func readSimpleString(data []byte) (string, int, error) {
 	pos := 1
-	for ; data[pos] != '\r'; pos++ {
+	for pos < len(data) && data[pos] != '\r' {
+		pos++
+	}
+
+	if pos+1 >= len(data) || data[pos+1] != '\n' {
+		return "", 0, ErrIncomplete
 	}
 	return string(data[1:pos]), pos + 2, nil
 }
@@ -21,48 +28,67 @@ func readInt(data []byte) (int64, int, error) {
 	pos := 1
 	var value int64 = 0
 
-	for ; data[pos] != '\r'; pos++ {
+	for pos < len(data) && data[pos] != '\r' {
 		value = value*10 + int64(data[pos]-'0')
+		pos++
 	}
 
+	if pos+1 >= len(data) || data[pos+1] != '\n' {
+		return 0, 0, ErrIncomplete
+	}
 	return value, pos + 2, nil
 }
 
-func readLength(data []byte) (int, int) {
+func readLength(data []byte) (int, int, error) {
 	pos := 0
 	length := 0
 
 	for pos < len(data) {
 		b := data[pos]
 		if b == '\r' {
-			return length, pos + 2
+			if pos+1 >= len(data) || data[pos+1] != '\n' {
+				return 0, 0, ErrIncomplete
+			}
+			return length, pos + 2, nil
 		}
 		length = length*10 + int(b-'0')
 		pos++
 	}
 
-	return 0, 0
+	return 0, 0, ErrIncomplete
 }
 
 func readBulkString(data []byte) (string, int, error) {
 	pos := 1
-	len, delta := readLength(data[pos:])
-
+	length, delta, err := readLength(data[pos:])
+	if err != nil {
+		return "", 0, err
+	}
 	pos += delta
 
-	return string(data[pos:(pos + len)]), pos + len + 2, nil
+	if pos+length+2 > len(data) {
+		return "", 0, ErrIncomplete
+	}
+
+	return string(data[pos:(pos + length)]), pos + length + 2, nil
 }
 
 func readArray(data []byte) (interface{}, int, error) {
 	pos := 1
 
-	count, delta := readLength(data[pos:])
-
+	count, delta, err := readLength(data[pos:])
+	if err != nil {
+		return nil, 0, err
+	}
 	pos += delta
 
 	var elems []interface{} = make([]interface{}, count)
 
 	for i := range elems {
+		if pos >= len(data) {
+			return nil, 0, ErrIncomplete
+		}
+
 		elem, delta, err := DecodeOne(data[pos:])
 		if err != nil {
 			return nil, 0, err
@@ -75,6 +101,10 @@ func readArray(data []byte) (interface{}, int, error) {
 }
 
 func DecodeOne(data []byte) (interface{}, int, error) {
+	if len(data) == 0 {
+		return nil, 0, ErrIncomplete
+	}
+
 	switch data[0] {
 	case '+':
 		return readSimpleString(data)
@@ -88,29 +118,12 @@ func DecodeOne(data []byte) (interface{}, int, error) {
 		return readArray(data)
 	}
 
-	return nil, 0, nil
+	return nil, 0, fmt.Errorf("invalid RESP type: %q (hex: %x)", data[0], data[0])
 }
 
-func DecodeArrayString(data []byte) ([]string, error) {
-	values, err := Decode(data)
-	if err != nil {
-		return nil, err
-	}
-
-	ts := values[0].([]interface{})
-
-	tokens := make([]string, len(ts))
-
-	for i := range ts {
-		tokens[i] = ts[i].(string)
-	}
-
-	return tokens, nil
-}
-
-func Decode(data []byte) ([]interface{}, error) {
+func Decode(data []byte) ([]interface{}, int, error) {
 	if len(data) == 0 {
-		return nil, errors.New("no data")
+		return nil, 0, nil
 	}
 
 	var values []interface{} = make([]interface{}, 0)
@@ -119,13 +132,17 @@ func Decode(data []byte) ([]interface{}, error) {
 	for index < len(data) {
 		value, delta, err := DecodeOne(data[index:])
 		if err != nil {
-			return values, err
+
+			if err == ErrIncomplete {
+				return values, index, nil
+			}
+			return values, index, err
 		}
 		index = index + delta
 		values = append(values, value)
 	}
 
-	return values, nil
+	return values, index, nil
 }
 
 func encodeString(v string) []byte {
@@ -154,9 +171,6 @@ func Encode(value any, isSimple bool) []byte {
 
 	case error:
 		return []byte(fmt.Sprintf("-%s\r\n", v))
-
-	default:
-
 	}
 
 	return []byte{}
