@@ -3,6 +3,7 @@ package server
 import (
 	"log"
 	"net"
+
 	"runtime"
 	"time"
 
@@ -12,6 +13,7 @@ import (
 )
 
 var (
+	zmalloc                    = NewZAllocator(512 * 1024 * 1024)
 	con_clients                = 0
 	lastRDB      time.Time     = time.Now()
 	rdbFrequency time.Duration = 900 * time.Second
@@ -37,10 +39,24 @@ func (w ReplyBufferWrapper) Read(p []byte) (n int, err error) {
 }
 
 func NewClient(fd int) *Client {
+
+	qBuf, err := zmalloc.Alloc(4096)
+	if err != nil {
+		log.Println("OOM")
+		return nil
+	}
+
+	rBuf, err := zmalloc.Alloc(4096)
+	if err != nil {
+		log.Println("OOM")
+		zmalloc.Free(qBuf)
+		return nil
+	}
+
 	return &Client{
 		Fd:       fd,
-		QueryBuf: make([]byte, 0),
-		ReplyBuf: make([]byte, 0),
+		QueryBuf: qBuf[:0],
+		ReplyBuf: rBuf[:0],
 	}
 }
 
@@ -76,13 +92,14 @@ func AcceptTcpHandler(el *EventLoop, serverFD int, clientData interface{}) {
 			return
 		}
 
-		con_clients++
-
 		if err := unix.SetNonblock(fd, true); err != nil {
 			log.Println("SerNonBlock error :", err)
 			unix.Close(fd)
-			con_clients--
 			continue
+		}
+
+		if err := unix.SetsockoptInt(fd, unix.IPPROTO_TCP, unix.TCP_NODELAY, 1); err != nil {
+			log.Println("Set TCP_NODELAY error :", err)
 		}
 
 		client := NewClient(fd)
@@ -91,9 +108,10 @@ func AcceptTcpHandler(el *EventLoop, serverFD int, clientData interface{}) {
 		if err != nil {
 			log.Println("Failed to add client to epoll: ", err)
 			unix.Close(fd)
-			con_clients--
 			continue
 		}
+
+		con_clients++
 	}
 }
 
@@ -101,15 +119,40 @@ func freeClient(loop *EventLoop, client *Client) {
 	loop.DeleteFileEvent(client.Fd, unix.EPOLLIN|unix.EPOLLOUT)
 	unix.Close(client.Fd)
 	con_clients--
+
+	zmalloc.Free(client.QueryBuf)
+	zmalloc.Free(client.ReplyBuf)
 }
 
 func ReadQueryFromClient(loop *EventLoop, fd int, clientData interface{}) {
 	client := clientData.(*Client)
 
-	readBuffer := make([]byte, 4096)
-
 	for {
-		n, err := unix.Read(fd, readBuffer)
+
+		if len(client.QueryBuf) == cap(client.QueryBuf) {
+			newCap := cap(client.QueryBuf) * 2
+			if newCap == 0 {
+				newCap = 4096
+			}
+
+			newBuf, err := zmalloc.Alloc(newCap)
+			if err != nil {
+				log.Println("OOM: Client sent too much data, disconnecting")
+				freeClient(loop, client)
+				return
+			}
+
+			newBuf = newBuf[:len(client.QueryBuf)]
+			copy(newBuf, client.QueryBuf)
+
+			zmalloc.Free(client.QueryBuf)
+
+			client.QueryBuf = newBuf
+		}
+
+		freeSpace := client.QueryBuf[len(client.QueryBuf):cap(client.QueryBuf)]
+
+		n, err := unix.Read(fd, freeSpace)
 		if err != nil {
 
 			if err == unix.EAGAIN || err == unix.EWOULDBLOCK {
@@ -127,7 +170,7 @@ func ReadQueryFromClient(loop *EventLoop, fd int, clientData interface{}) {
 			return
 		}
 
-		client.QueryBuf = append(client.QueryBuf, readBuffer[:n]...)
+		client.QueryBuf = client.QueryBuf[:len(client.QueryBuf)+n]
 
 		processClientQueryBuffer(loop, client)
 	}
@@ -155,6 +198,7 @@ func SendReplyToClient(loop *EventLoop, fd int, clientData interface{}) {
 	client.ReplyBuf = client.ReplyBuf[n:]
 
 	if len(client.ReplyBuf) == 0 {
+		client.ReplyBuf = client.ReplyBuf[:0]
 		loop.DeleteFileEvent(fd, unix.EPOLLOUT)
 	}
 }
@@ -182,7 +226,8 @@ func processClientQueryBuffer(loop *EventLoop, client *Client) {
 	loop.AddFileEvent(client.Fd, unix.EPOLLOUT, SendReplyToClient, client)
 }
 
-func RunAsyncServer2() error {
+func RunAsyncServer() error {
+
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()
 

@@ -34,7 +34,7 @@ func main() {
 	setupFlags()
 	log.Println("starting the server...")
 
-	err := server.RunAsyncServer2()
+	err := server.RunAsyncServer()
 
 	if err != nil {
 		log.Panic(err)

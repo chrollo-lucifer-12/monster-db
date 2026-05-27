@@ -77,5 +77,5 @@ func DeleteExpiredKey() {
 		}
 	}
 
-	log.Println("deleted the expired but undeleted keys. total keys", len(store))
+	// log.Println("deleted the expired but undeleted keys. total keys", len(store))
 }
