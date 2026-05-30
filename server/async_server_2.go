@@ -7,16 +7,15 @@ import (
 	"runtime"
 	"time"
 
-	"net/http"
 	_ "net/http/pprof"
 
+	"github.com/redis-server/alloc"
 	"github.com/redis-server/config"
 	"github.com/redis-server/core"
 	"golang.org/x/sys/unix"
 )
 
 var (
-	zmalloc                           = NewZAllocator(512 * 1024 * 1024)
 	clientsPendingWrite               = make(map[int]*Client)
 	con_clients                       = 0
 	lastRDB             time.Time     = time.Now()
@@ -44,16 +43,16 @@ func (w ReplyBufferWrapper) Read(p []byte) (n int, err error) {
 
 func NewClient(fd int) *Client {
 
-	qBuf, err := zmalloc.Alloc(4096)
+	qBuf, err := alloc.Alloc(4096)
 	if err != nil {
 		log.Println("OOM")
 		return nil
 	}
 
-	rBuf, err := zmalloc.Alloc(4096)
+	rBuf, err := alloc.Alloc(4096)
 	if err != nil {
 		log.Println("OOM")
-		zmalloc.Free(qBuf)
+		alloc.Free(qBuf)
 		return nil
 	}
 
@@ -124,8 +123,8 @@ func freeClient(loop *EventLoop, client *Client) {
 	unix.Close(client.Fd)
 	con_clients--
 
-	zmalloc.Free(client.QueryBuf)
-	zmalloc.Free(client.ReplyBuf)
+	alloc.Free(client.QueryBuf)
+	alloc.Free(client.ReplyBuf)
 }
 
 func ReadQueryFromClient(loop *EventLoop, fd int, clientData interface{}) {
@@ -139,7 +138,7 @@ func ReadQueryFromClient(loop *EventLoop, fd int, clientData interface{}) {
 				newCap = 4096
 			}
 
-			newBuf, err := zmalloc.Alloc(newCap)
+			newBuf, err := alloc.Alloc(newCap)
 			if err != nil {
 				log.Println("OOM: Client sent too much data, disconnecting")
 				freeClient(loop, client)
@@ -149,7 +148,7 @@ func ReadQueryFromClient(loop *EventLoop, fd int, clientData interface{}) {
 			newBuf = newBuf[:len(client.QueryBuf)]
 			copy(newBuf, client.QueryBuf)
 
-			zmalloc.Free(client.QueryBuf)
+			alloc.Free(client.QueryBuf)
 
 			client.QueryBuf = newBuf
 		}
@@ -238,11 +237,6 @@ func processClientQueryBuffer(loop *EventLoop, client *Client) {
 }
 
 func RunAsyncServer() error {
-
-	go func() {
-		log.Println("Starting pprof server on http://localhost:6060")
-		log.Println(http.ListenAndServe("localhost:6060", nil))
-	}()
 
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()

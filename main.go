@@ -5,6 +5,7 @@ import (
 	"log"
 	"os"
 
+	"github.com/redis-server/alloc"
 	"github.com/redis-server/config"
 	"github.com/redis-server/core"
 	"github.com/redis-server/server"
@@ -28,7 +29,7 @@ func main() {
 		core.DumpAllAOF()
 		return
 	}
-
+	alloc.InitGlobalAllocator(config.Maxmem)
 	core.Init()
 	//	core.RESTOREAOF()
 	setupFlags()

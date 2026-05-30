@@ -1,8 +1,7 @@
 package core
 
 import (
-	"log"
-
+	"github.com/redis-server/alloc"
 	"github.com/redis-server/config"
 )
 
@@ -36,6 +35,13 @@ func Put(k string, obj *Obj) {
 		evict()
 	}
 
+	mem := obj.Size() + int64(len(k))
+
+	_, err := alloc.Alloc(int(mem))
+	if err != nil {
+		return
+	}
+
 	obj.LastAccessedAt = getCurrentClock()
 	store[k] = obj
 
@@ -58,11 +64,15 @@ func Get(k string) *Obj {
 }
 
 func Del(k string) bool {
-	log.Print("deleting key :", k)
+
 	if obj, ok := store[k]; ok {
 		delete(store, k)
 		delete(expires, obj)
 		KeyspaceStat[0]["keys"]--
+
+		mem := obj.Size() + int64(len(k))
+		alloc.Free(make([]byte, 0, mem))
+
 		return true
 	}
 	return false
