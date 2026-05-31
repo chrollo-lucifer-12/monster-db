@@ -22,16 +22,6 @@ var (
 	rdbFrequency        time.Duration = 900 * time.Second
 )
 
-type Client struct {
-	Fd       int
-	QueryBuf []byte
-	ReplyBuf []byte
-}
-
-type ReplyBufferWrapper struct {
-	client *Client
-}
-
 func (w ReplyBufferWrapper) Write(p []byte) (n int, err error) {
 	w.client.ReplyBuf = append(w.client.ReplyBuf, p...)
 	return len(p), nil
@@ -39,28 +29,6 @@ func (w ReplyBufferWrapper) Write(p []byte) (n int, err error) {
 
 func (w ReplyBufferWrapper) Read(p []byte) (n int, err error) {
 	return 0, nil
-}
-
-func NewClient(fd int) *Client {
-
-	qBuf, err := alloc.Alloc(4096)
-	if err != nil {
-		log.Println("OOM")
-		return nil
-	}
-
-	rBuf, err := alloc.Alloc(4096)
-	if err != nil {
-		log.Println("OOM")
-		alloc.Free(qBuf)
-		return nil
-	}
-
-	return &Client{
-		Fd:       fd,
-		QueryBuf: qBuf[:0],
-		ReplyBuf: rBuf[:0],
-	}
 }
 
 func ServerCronHandler(loop *EventLoop, id int64, clientData interface{}) int {

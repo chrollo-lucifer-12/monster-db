@@ -7,33 +7,6 @@ import (
 	"golang.org/x/sys/unix"
 )
 
-type TimeProc func(loop *EventLoop, id int64, clientData interface{}) int
-
-type TimeEvent struct {
-	ID         int64
-	When       time.Time
-	Proc       TimeProc
-	ClientData interface{}
-}
-
-type FileProc func(loop *EventLoop, fd int, clientData interface{})
-
-type FileEvent struct {
-	Mask       uint32
-	ReadProc   FileProc
-	WriteProc  FileProc
-	ClientData interface{}
-}
-
-type EventLoop struct {
-	EpollFD         int
-	Events          map[int]*FileEvent
-	Fired           []unix.EpollEvent
-	TimeEvents      []*TimeEvent
-	NextTimeEventID int64
-	Stop            bool
-}
-
 func (el *EventLoop) AddTimeEvent(ms int64, proc TimeProc, clientData interface{}) int64 {
 	id := el.NextTimeEventID
 	el.NextTimeEventID++
@@ -206,16 +179,4 @@ func (el *EventLoop) Main() {
 
 		el.processTimeEvents()
 	}
-}
-
-func CreateEventLoop(maxClients int) (*EventLoop, error) {
-	epollFD, err := unix.EpollCreate1(0)
-	if err != nil {
-		return nil, err
-	}
-
-	return &EventLoop{EpollFD: epollFD,
-		Events: make(map[int]*FileEvent),
-		Fired:  make([]unix.EpollEvent, maxClients),
-		Stop:   false}, nil
 }
