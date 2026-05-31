@@ -231,9 +231,9 @@ func evalLATENCY(args []string) []byte {
 }
 
 func evalMULTI(args []string, flag uint8) Action {
-	if len(args) != 1 {
-		return Action{Reply: resp.Encode(errors.New("(error) ERR wrong number of arguments for 'multi' command"), false), Flag: 0}
-	}
+	// if len(args) != 1 {
+	// 	return Action{Reply: resp.Encode(errors.New("(error) ERR wrong number of arguments for 'multi' command"), false), Flag: 0}
+	// }
 
 	if flag&1 == 1 {
 		return Action{Reply: RESP_MINUS_ONE, Flag: 0}

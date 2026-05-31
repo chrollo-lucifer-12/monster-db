@@ -53,6 +53,9 @@ func Put(k string, obj *Obj) {
 
 func Get(k string) *Obj {
 	v := store[k]
+	if v == nil {
+		return nil
+	}
 	if v != nil {
 		if hasExpired(v) {
 			Del(k)
