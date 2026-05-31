@@ -12,7 +12,6 @@ import (
 	"github.com/redis-server/alloc"
 	"github.com/redis-server/config"
 	"github.com/redis-server/core"
-	"github.com/redis-server/resp"
 
 	"golang.org/x/sys/unix"
 )
@@ -186,12 +185,7 @@ func processClientQueryBuffer(loop *EventLoop, client *Client) {
 		return
 	}
 
-	if (client.flag & 1) == 1 {
-		client.multistate.cmds = append(client.multistate.cmds, cmds...)
-		client.ReplyBuf = append(client.ReplyBuf, resp.Encode("QUEUED", false)...)
-	} else {
-		respond(cmds, client)
-	}
+	respond(cmds, client)
 
 	if len(client.ReplyBuf) > 0 {
 		clientsPendingWrite[client.Fd] = client

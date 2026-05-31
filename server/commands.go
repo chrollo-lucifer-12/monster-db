@@ -59,7 +59,34 @@ func respondWithError(client io.ReadWriter, err error) {
 }
 
 func respond(cmds core.RedisCmds, client *Client) {
-	action := core.EvalAndInput(core.Context{Flag: client.flag, Cmds: cmds})
-	client.ReplyBuf = append(client.ReplyBuf, action.Reply...)
-	client.flag |= action.Flag
+	for _, cmd := range cmds {
+		if client.flag == 1 && cmd.Cmd != "EXEC" && cmd.Cmd != "DISCARD" {
+			client.multistate.cmds = append(client.multistate.cmds, cmd)
+			client.ReplyBuf = append(client.ReplyBuf, []byte("+QUEUED\r\n")...)
+			continue
+		}
+
+		switch cmd.Cmd {
+
+		case "MULTI":
+			client.flag = 1
+			client.multistate.cmds = nil
+			client.ReplyBuf = append(client.ReplyBuf, []byte("+OK\r\n")...)
+
+		case "EXEC":
+			for _, qcmd := range client.multistate.cmds {
+				client.ReplyBuf = append(client.ReplyBuf, core.Eval(qcmd)...)
+			}
+			client.multistate.cmds = nil
+			client.flag = 0
+
+		case "DISCARD":
+			client.multistate.cmds = nil
+			client.flag = 0
+			client.ReplyBuf = append(client.ReplyBuf, []byte("+OK\r\n")...)
+
+		default:
+			client.ReplyBuf = append(client.ReplyBuf, core.Eval(cmd)...)
+		}
+	}
 }

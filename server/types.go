@@ -9,8 +9,11 @@ import (
 	"golang.org/x/sys/unix"
 )
 
+var MULTI_MODE uint8 = 00000001
+
 type Multistate struct {
-	cmds core.RedisCmds
+	cmds    core.RedisCmds
+	aborted bool
 }
 
 type Client struct {

@@ -13,16 +13,6 @@ import (
 	"github.com/redis-server/resp"
 )
 
-type Context struct {
-	Flag uint8
-	Cmds RedisCmds
-}
-
-type Action struct {
-	Reply []byte
-	Flag  uint8
-}
-
 var RESP_NIL []byte = []byte("$-1\r\n")
 var RESP_OK []byte = []byte("+OK\r\n")
 var RESP_ZERO []byte = []byte(":0\r\n")
@@ -230,59 +220,32 @@ func evalLATENCY(args []string) []byte {
 	return resp.Encode([]string{}, false)
 }
 
-func evalMULTI(args []string, flag uint8) Action {
-	// if len(args) != 1 {
-	// 	return Action{Reply: resp.Encode(errors.New("(error) ERR wrong number of arguments for 'multi' command"), false), Flag: 0}
-	// }
+func Eval(cmd *RedisCmd) []byte {
 
-	if flag&1 == 1 {
-		return Action{Reply: RESP_MINUS_ONE, Flag: 0}
+	switch cmd.Cmd {
+	case "SET":
+		return evalSET(cmd.Args)
+	case "GET":
+		return evalGET(cmd.Args)
+	case "TTL":
+		return evalTTL(cmd.Args)
+	case "DEL":
+		return evalDEL(cmd.Args)
+	case "EXPIRE":
+		return evalEXPIRE(cmd.Args)
+	case "BGREWRITEAOF":
+		return evalBGREWRITE(cmd.Args)
+	case "INCR":
+		return evalINCR(cmd.Args)
+	case "INFO":
+		return evalINFO(cmd.Args)
+	case "CLIENT":
+		return evalCLIENT(cmd.Args)
+	case "LATENCY":
+		return evalLATENCY(cmd.Args)
+	default:
+		return evalPING(cmd.Args)
 	}
 
-	return Action{Reply: RESP_OK, Flag: 1}
-}
-
-func EvalAndInput(ctx Context) Action {
-
-	for _, cmd := range ctx.Cmds {
-		switch cmd.Cmd {
-		case "SET":
-			return Action{Reply: evalSET(cmd.Args), Flag: 0}
-
-		case "GET":
-			return Action{Reply: evalGET(cmd.Args), Flag: 0}
-
-		case "TTL":
-			return Action{Reply: evalTTL(cmd.Args), Flag: 0}
-
-		case "DEL":
-			return Action{Reply: evalDEL(cmd.Args), Flag: 0}
-
-		case "EXPIRE":
-			return Action{Reply: evalEXPIRE(cmd.Args), Flag: 0}
-
-		case "BGREWRITEAOF":
-			return Action{Reply: evalBGREWRITE(cmd.Args), Flag: 0}
-
-		case "INCR":
-			return Action{Reply: evalINCR(cmd.Args), Flag: 0}
-
-		case "INFO":
-			return Action{Reply: evalINFO(cmd.Args), Flag: 0}
-
-		case "CLIENT":
-			return Action{Reply: evalCLIENT(cmd.Args), Flag: 0}
-
-		case "LATENCY":
-			return Action{Reply: evalLATENCY(cmd.Args), Flag: 0}
-
-		case "MULTI":
-			return evalMULTI(cmd.Args, ctx.Flag)
-
-		default:
-			return Action{Reply: evalPING(cmd.Args), Flag: 0}
-		}
-	}
-
-	return Action{}
+	return nil
 }
