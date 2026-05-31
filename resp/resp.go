@@ -175,3 +175,15 @@ func Encode(value any, isSimple bool) []byte {
 
 	return []byte{}
 }
+
+func EncodeExecArray(results [][]byte) []byte {
+	var buf bytes.Buffer
+
+	buf.WriteString(fmt.Sprintf("*%d\r\n", len(results)))
+
+	for _, r := range results {
+		buf.Write(r)
+	}
+
+	return buf.Bytes()
+}

@@ -69,18 +69,48 @@ func respond(cmds core.RedisCmds, client *Client) {
 		switch cmd.Cmd {
 
 		case "MULTI":
+
+			if client.flag == 1 {
+				client.ReplyBuf = append(client.ReplyBuf, []byte("-ERR EXEC without MULTI\r\n")...)
+				break
+			}
+
 			client.flag = 1
 			client.multistate.cmds = nil
 			client.ReplyBuf = append(client.ReplyBuf, []byte("+OK\r\n")...)
 
 		case "EXEC":
-			for _, qcmd := range client.multistate.cmds {
-				client.ReplyBuf = append(client.ReplyBuf, core.Eval(qcmd)...)
+
+			if client.flag != 1 {
+				client.ReplyBuf = append(client.ReplyBuf,
+					[]byte("-ERR EXEC without MULTI\r\n")...)
+				break
 			}
+
+			if len(client.multistate.cmds) == 0 {
+				client.flag = 0
+				client.ReplyBuf = append(client.ReplyBuf, []byte("*0\r\n")...)
+				break
+			}
+
+			results := make([][]byte, 0, len(client.multistate.cmds))
+
+			for _, qcmd := range client.multistate.cmds {
+				results = append(results, core.Eval(qcmd))
+			}
+
 			client.multistate.cmds = nil
 			client.flag = 0
 
+			client.ReplyBuf = append(client.ReplyBuf, resp.EncodeExecArray(results)...)
+
 		case "DISCARD":
+			if client.flag != 1 {
+				client.ReplyBuf = append(client.ReplyBuf,
+					[]byte("-ERR DISCARD without MULTI\r\n")...)
+				break
+			}
+
 			client.multistate.cmds = nil
 			client.flag = 0
 			client.ReplyBuf = append(client.ReplyBuf, []byte("+OK\r\n")...)
