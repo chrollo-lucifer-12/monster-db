@@ -5,13 +5,20 @@ import (
 	"time"
 
 	"github.com/redis-server/alloc"
+	"github.com/redis-server/core"
 	"golang.org/x/sys/unix"
 )
 
+type Multistate struct {
+	cmds core.RedisCmds
+}
+
 type Client struct {
-	Fd       int
-	QueryBuf []byte
-	ReplyBuf []byte
+	Fd         int
+	QueryBuf   []byte
+	ReplyBuf   []byte
+	flag       uint8
+	multistate Multistate
 }
 
 type ReplyBufferWrapper struct {

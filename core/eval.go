@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"io"
 	"log"
 	"os"
 	"strconv"
@@ -13,6 +12,16 @@ import (
 
 	"github.com/redis-server/resp"
 )
+
+type Context struct {
+	Flag uint8
+	Cmds RedisCmds
+}
+
+type Action struct {
+	Reply []byte
+	Flag  uint8
+}
 
 var RESP_NIL []byte = []byte("$-1\r\n")
 var RESP_OK []byte = []byte("+OK\r\n")
@@ -221,36 +230,59 @@ func evalLATENCY(args []string) []byte {
 	return resp.Encode([]string{}, false)
 }
 
-func EvalAndInput(cmds RedisCmds, client io.ReadWriter) {
-	var response []byte
-	buf := bytes.NewBuffer(response)
+func evalMULTI(args []string, flag uint8) Action {
+	if len(args) != 1 {
+		return Action{Reply: resp.Encode(errors.New("(error) ERR wrong number of arguments for 'multi' command"), false), Flag: 0}
+	}
 
-	for _, cmd := range cmds {
+	if flag&1 == 1 {
+		return Action{Reply: RESP_MINUS_ONE, Flag: 0}
+	}
+
+	return Action{Reply: RESP_OK, Flag: 1}
+}
+
+func EvalAndInput(ctx Context) Action {
+
+	for _, cmd := range ctx.Cmds {
 		switch cmd.Cmd {
 		case "SET":
-			buf.Write(evalSET(cmd.Args))
+			return Action{Reply: evalSET(cmd.Args), Flag: 0}
+
 		case "GET":
-			buf.Write(evalGET(cmd.Args))
+			return Action{Reply: evalGET(cmd.Args), Flag: 0}
+
 		case "TTL":
-			buf.Write(evalTTL(cmd.Args))
+			return Action{Reply: evalTTL(cmd.Args), Flag: 0}
+
 		case "DEL":
-			buf.Write(evalDEL(cmd.Args))
+			return Action{Reply: evalDEL(cmd.Args), Flag: 0}
+
 		case "EXPIRE":
-			buf.Write(evalEXPIRE(cmd.Args))
+			return Action{Reply: evalEXPIRE(cmd.Args), Flag: 0}
+
 		case "BGREWRITEAOF":
-			buf.Write(evalBGREWRITE(cmd.Args))
+			return Action{Reply: evalBGREWRITE(cmd.Args), Flag: 0}
+
 		case "INCR":
-			buf.Write(evalINCR(cmd.Args))
+			return Action{Reply: evalINCR(cmd.Args), Flag: 0}
+
 		case "INFO":
-			buf.Write(evalINFO(cmd.Args))
+			return Action{Reply: evalINFO(cmd.Args), Flag: 0}
+
 		case "CLIENT":
-			buf.Write(evalCLIENT(cmd.Args))
+			return Action{Reply: evalCLIENT(cmd.Args), Flag: 0}
+
 		case "LATENCY":
-			buf.Write(evalLATENCY(cmd.Args))
+			return Action{Reply: evalLATENCY(cmd.Args), Flag: 0}
+
+		case "MULTI":
+			return evalMULTI(cmd.Args, ctx.Flag)
+
 		default:
-			buf.Write(evalPING(cmd.Args))
+			return Action{Reply: evalPING(cmd.Args), Flag: 0}
 		}
 	}
 
-	client.Write(buf.Bytes())
+	return Action{}
 }

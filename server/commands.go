@@ -58,6 +58,8 @@ func respondWithError(client io.ReadWriter, err error) {
 	client.Write([]byte(fmt.Sprintf("-%s\r\n", err)))
 }
 
-func respond(cmds core.RedisCmds, client io.ReadWriter) {
-	core.EvalAndInput(cmds, client)
+func respond(cmds core.RedisCmds, client *Client) {
+	action := core.EvalAndInput(core.Context{Flag: client.flag, Cmds: cmds})
+	client.ReplyBuf = append(client.ReplyBuf, action.Reply...)
+	client.flag |= action.Flag
 }

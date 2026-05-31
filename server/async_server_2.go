@@ -12,6 +12,7 @@ import (
 	"github.com/redis-server/alloc"
 	"github.com/redis-server/config"
 	"github.com/redis-server/core"
+
 	"golang.org/x/sys/unix"
 )
 
@@ -21,15 +22,6 @@ var (
 	lastRDB             time.Time     = time.Now()
 	rdbFrequency        time.Duration = 900 * time.Second
 )
-
-func (w ReplyBufferWrapper) Write(p []byte) (n int, err error) {
-	w.client.ReplyBuf = append(w.client.ReplyBuf, p...)
-	return len(p), nil
-}
-
-func (w ReplyBufferWrapper) Read(p []byte) (n int, err error) {
-	return 0, nil
-}
 
 func ServerCronHandler(loop *EventLoop, id int64, clientData interface{}) int {
 	now := time.Now()
@@ -193,15 +185,17 @@ func processClientQueryBuffer(loop *EventLoop, client *Client) {
 		return
 	}
 
-	writerWrapper := ReplyBufferWrapper{client: client}
+	if (client.flag & 1) == 1 {
+		client.multistate.cmds = cmds
+		return
+	}
 
-	respond(cmds, writerWrapper)
+	respond(cmds, client)
 
 	if len(client.ReplyBuf) > 0 {
 		clientsPendingWrite[client.Fd] = client
 	}
 
-	// loop.AddFileEvent(client.Fd, unix.EPOLLOUT, SendReplyToClient, client)
 }
 
 func RunAsyncServer() error {
