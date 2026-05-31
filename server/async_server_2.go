@@ -17,10 +17,9 @@ import (
 )
 
 var (
-	clientsPendingWrite               = make(map[int]*Client)
-	con_clients                       = 0
-	lastRDB             time.Time     = time.Now()
-	rdbFrequency        time.Duration = 900 * time.Second
+	con_clients                = 0
+	lastRDB      time.Time     = time.Now()
+	rdbFrequency time.Duration = 900 * time.Second
 )
 
 func ServerCronHandler(loop *EventLoop, id int64, clientData interface{}) int {
@@ -84,7 +83,7 @@ func freeClient(loop *EventLoop, client *Client) {
 	con_clients--
 
 	alloc.Free(client.QueryBuf)
-	alloc.Free(client.ReplyBuf)
+
 }
 
 func ReadQueryFromClient(loop *EventLoop, fd int, clientData interface{}) {
@@ -142,28 +141,28 @@ func ReadQueryFromClient(loop *EventLoop, fd int, clientData interface{}) {
 func SendReplyToClient(loop *EventLoop, fd int, clientData interface{}) {
 	client := clientData.(*Client)
 
-	if len(client.ReplyBuf) == 0 {
-		loop.DeleteFileEvent(fd, unix.EPOLLOUT)
-		return
-	}
+	for len(client.ReplyBuf) > 0 {
+		buf := client.ReplyBuf[0]
 
-	n, err := unix.Write(fd, client.ReplyBuf)
-	if err != nil {
-		if err == unix.EAGAIN || err == unix.EWOULDBLOCK {
+		n, err := unix.Write(fd, buf)
+		if err != nil {
+			if err == unix.EAGAIN || err == unix.EWOULDBLOCK {
+				return
+			}
+			freeClient(loop, client)
 			return
 		}
 
-		log.Printf("Write error on FD %d: %v\n", fd, err)
-		freeClient(loop, client)
-		return
+		if n < len(buf) {
+
+			client.ReplyBuf[0] = buf[n:]
+			return
+		}
+
+		client.ReplyBuf = client.ReplyBuf[1:]
 	}
 
-	client.ReplyBuf = client.ReplyBuf[n:]
-
-	if len(client.ReplyBuf) == 0 {
-		client.ReplyBuf = client.ReplyBuf[:0]
-		loop.DeleteFileEvent(fd, unix.EPOLLOUT)
-	}
+	loop.DeleteFileEvent(fd, unix.EPOLLOUT)
 }
 
 func processClientQueryBuffer(loop *EventLoop, client *Client) {
@@ -188,7 +187,7 @@ func processClientQueryBuffer(loop *EventLoop, client *Client) {
 	respond(cmds, client)
 
 	if len(client.ReplyBuf) > 0 {
-		clientsPendingWrite[client.Fd] = client
+		loop.AddFileEvent(client.Fd, unix.EPOLLOUT, SendReplyToClient, client)
 	}
 
 }

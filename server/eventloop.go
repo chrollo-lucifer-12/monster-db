@@ -94,35 +94,6 @@ func (el *EventLoop) DeleteFileEvent(fd int, mask uint32) {
 	}
 }
 
-func beforeSleep(loop *EventLoop) {
-	for fd, client := range clientsPendingWrite {
-
-		n, err := unix.Write(fd, client.ReplyBuf)
-
-		if err != nil {
-			if err == unix.EAGAIN || err == unix.EWOULDBLOCK {
-				loop.AddFileEvent(fd, unix.EPOLLOUT, SendReplyToClient, client)
-				continue
-			}
-			log.Printf("Greedy write error on FD %d: %v\n", fd, err)
-			freeClient(loop, client)
-			delete(clientsPendingWrite, fd)
-			continue
-		}
-
-		client.ReplyBuf = client.ReplyBuf[n:]
-
-		if len(client.ReplyBuf) > 0 {
-
-			loop.AddFileEvent(fd, unix.EPOLLOUT, SendReplyToClient, client)
-		} else {
-			loop.DeleteFileEvent(fd, unix.EPOLLOUT)
-		}
-
-		delete(clientsPendingWrite, fd)
-	}
-}
-
 func (el *EventLoop) Main() {
 	el.Stop = false
 
@@ -148,7 +119,6 @@ func (el *EventLoop) Main() {
 			}
 		}
 
-		beforeSleep(el)
 		nevents, err := unix.EpollWait(el.EpollFD, el.Fired, timeoutMs)
 
 		if err != nil {

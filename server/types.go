@@ -19,7 +19,7 @@ type Multistate struct {
 type Client struct {
 	Fd         int
 	QueryBuf   []byte
-	ReplyBuf   []byte
+	ReplyBuf   [][]byte
 	flag       uint8
 	multistate Multistate
 }
@@ -63,17 +63,10 @@ func NewClient(fd int) *Client {
 		return nil
 	}
 
-	rBuf, err := alloc.Alloc(4096)
-	if err != nil {
-		log.Println("OOM")
-		alloc.Free(qBuf)
-		return nil
-	}
-
 	return &Client{
 		Fd:       fd,
 		QueryBuf: qBuf[:0],
-		ReplyBuf: rBuf[:0],
+		ReplyBuf: make([][]byte, 0, 16),
 	}
 }
 

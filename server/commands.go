@@ -62,7 +62,7 @@ func respond(cmds core.RedisCmds, client *Client) {
 	for _, cmd := range cmds {
 		if client.flag == 1 && cmd.Cmd != "EXEC" && cmd.Cmd != "DISCARD" {
 			client.multistate.cmds = append(client.multistate.cmds, cmd)
-			client.ReplyBuf = append(client.ReplyBuf, []byte("+QUEUED\r\n")...)
+			client.ReplyBuf = append(client.ReplyBuf, []byte("+QUEUED\r\n"))
 			continue
 		}
 
@@ -71,25 +71,25 @@ func respond(cmds core.RedisCmds, client *Client) {
 		case "MULTI":
 
 			if client.flag == 1 {
-				client.ReplyBuf = append(client.ReplyBuf, []byte("-ERR EXEC without MULTI\r\n")...)
+				client.ReplyBuf = append(client.ReplyBuf, []byte("-ERR EXEC without MULTI\r\n"))
 				break
 			}
 
 			client.flag = 1
 			client.multistate.cmds = nil
-			client.ReplyBuf = append(client.ReplyBuf, []byte("+OK\r\n")...)
+			client.ReplyBuf = append(client.ReplyBuf, []byte("+OK\r\n"))
 
 		case "EXEC":
 
 			if client.flag != 1 {
 				client.ReplyBuf = append(client.ReplyBuf,
-					[]byte("-ERR EXEC without MULTI\r\n")...)
+					[]byte("-ERR EXEC without MULTI\r\n"))
 				break
 			}
 
 			if len(client.multistate.cmds) == 0 {
 				client.flag = 0
-				client.ReplyBuf = append(client.ReplyBuf, []byte("*0\r\n")...)
+				client.ReplyBuf = append(client.ReplyBuf, []byte("*0\r\n"))
 				break
 			}
 
@@ -102,21 +102,21 @@ func respond(cmds core.RedisCmds, client *Client) {
 			client.multistate.cmds = nil
 			client.flag = 0
 
-			client.ReplyBuf = append(client.ReplyBuf, resp.EncodeExecArray(results)...)
+			client.ReplyBuf = append(client.ReplyBuf, resp.EncodeExecArray(results))
 
 		case "DISCARD":
 			if client.flag != 1 {
 				client.ReplyBuf = append(client.ReplyBuf,
-					[]byte("-ERR DISCARD without MULTI\r\n")...)
+					[]byte("-ERR DISCARD without MULTI\r\n"))
 				break
 			}
 
 			client.multistate.cmds = nil
 			client.flag = 0
-			client.ReplyBuf = append(client.ReplyBuf, []byte("+OK\r\n")...)
+			client.ReplyBuf = append(client.ReplyBuf, []byte("+OK\r\n"))
 
 		default:
-			client.ReplyBuf = append(client.ReplyBuf, core.Eval(cmd)...)
+			client.ReplyBuf = append(client.ReplyBuf, core.Eval(cmd))
 		}
 	}
 }
