@@ -220,6 +220,22 @@ func evalLATENCY(args []string) []byte {
 	return resp.Encode([]string{}, false)
 }
 
+func evalSLEEP(args []string) []byte {
+	if len(args) != 1 {
+		return resp.Encode(errors.New("(error) ERR wrong number of arguments for 'sleep' command"), false)
+	}
+
+	durationSec, err := strconv.ParseInt(args[0], 10, 64)
+
+	if err != nil {
+		return resp.Encode(errors.New("ERR value is not an integer or out of range"), false)
+	}
+
+	time.Sleep(time.Duration(durationSec) * time.Second)
+
+	return RESP_OK
+}
+
 func Eval(cmd *RedisCmd) []byte {
 
 	switch cmd.Cmd {
@@ -243,6 +259,8 @@ func Eval(cmd *RedisCmd) []byte {
 		return evalCLIENT(cmd.Args)
 	case "LATENCY":
 		return evalLATENCY(cmd.Args)
+	case "SLEEP":
+		return evalSLEEP(cmd.Args)
 	default:
 		return evalPING(cmd.Args)
 	}
