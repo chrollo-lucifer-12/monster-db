@@ -59,9 +59,7 @@ func (lp *Listpack) append(entry []byte) {
 
 	lp.data = lp.data[:len(lp.data)-1]
 
-	backlen := encodeBacklen(len(entry))
 	lp.data = append(lp.data, entry...)
-	lp.data = append(lp.data, backlen...)
 
 	lp.data = append(lp.data, endByte)
 
@@ -126,21 +124,65 @@ func encodeString(s []byte) []byte {
 	return out
 }
 
-func encodeBacklen(n int) []byte {
-	var buf [5]byte
-	i := 0
+func (lp *Listpack) Scan() []any {
+	var res []any
 
-	for {
-		b := byte(n & 0x7F)
-		n >>= 7
-		if n == 0 {
-			buf[i] = b
-			i++
-			break
-		} else {
-			buf[i] = b | 0x80
-			i++
-		}
+	i := headerSize
+
+	for i < len(lp.data)-1 {
+		val, size := decodeEntry(lp.data[i:])
+		res = append(res, val)
+		i += size
 	}
-	return buf[:i]
+
+	return res
+}
+
+func decodeEntry(b []byte) (any, int) {
+	if len(b) == 0 {
+		return nil, 0
+	}
+
+	enc := b[0]
+
+	if enc < 0x80 {
+		return int64(enc), 1
+	}
+
+	if enc&0xC0 == 0x80 {
+		val := int(enc&0x3F)<<8 | int(b[1])
+		return int64(val), 2
+	}
+
+	if enc == 0xC0 {
+		val := int16(binary.LittleEndian.Uint16(b[1:3]))
+		return int64(val), 3
+	}
+
+	if enc == 0xD0 {
+		val := int32(binary.LittleEndian.Uint32(b[1:5]))
+		return int64(val), 5
+	}
+
+	if enc == 0xE0 {
+		val := int64(binary.LittleEndian.Uint64(b[1:9]))
+		return val, 9
+	}
+
+	if enc&0xC0 == 0x00 {
+		n := int(enc & 0x3F)
+		return string(b[1 : 1+n]), 1 + n
+	}
+
+	if enc&0xC0 == 0x40 {
+		n := int(enc&0x3F)<<8 | int(b[1])
+		return string(b[2 : 2+n]), 2 + n
+	}
+
+	if enc == 0x80 {
+		n := int(binary.LittleEndian.Uint32(b[1:5]))
+		return string(b[5 : 5+n]), 5 + n
+	}
+
+	return nil, 1
 }
