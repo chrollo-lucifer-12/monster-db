@@ -4,11 +4,14 @@ import (
 	"flag"
 	"log"
 	"os"
+	"os/signal"
+	"sync"
 
 	"github.com/redis-server/alloc"
 	"github.com/redis-server/config"
 	"github.com/redis-server/core"
 	"github.com/redis-server/server"
+	"golang.org/x/sys/unix"
 )
 
 func setupFlags() {
@@ -29,15 +32,21 @@ func main() {
 		core.DumpAllAOF()
 		return
 	}
+
+	var sigs chan os.Signal = make(chan os.Signal, 1)
+	signal.Notify(sigs, unix.SIGTERM, unix.SIGINT)
+
+	var wg sync.WaitGroup
+	wg.Add(2)
+
 	alloc.InitGlobalAllocator(config.Maxmem)
 	core.Init()
 	//	core.RESTOREAOF()
 	setupFlags()
 	log.Println("starting the server...")
 
-	err := server.RunAsyncServer()
+	go server.RunAsyncServer(&wg)
+	go server.WaitForSignal(&wg, sigs)
 
-	if err != nil {
-		log.Panic(err)
-	}
+	wg.Wait()
 }

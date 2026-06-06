@@ -2,6 +2,7 @@ package server
 
 import (
 	"log"
+	"sync/atomic"
 	"time"
 
 	"golang.org/x/sys/unix"
@@ -123,10 +124,9 @@ func beforeSleep(loop *EventLoop) {
 	}
 }
 
-func (el *EventLoop) Main() {
-	el.Stop = false
+func (el *EventLoop) Main() error {
 
-	for !el.Stop {
+	for atomic.LoadInt32(&eStatus) != EnngineStatus_SHUTTING_DOWN {
 
 		timeoutMs := 100
 
@@ -159,6 +159,13 @@ func (el *EventLoop) Main() {
 			break
 		}
 
+		if !atomic.CompareAndSwapInt32(&eStatus, EngineStatus_WAITING, EngineStatus_BUSY) {
+			switch eStatus {
+			case EnngineStatus_SHUTTING_DOWN:
+				return nil
+			}
+		}
+
 		for i := 0; i < nevents; i++ {
 			fd := int(el.Fired[i].Fd)
 			mask := el.Fired[i].Events
@@ -178,5 +185,9 @@ func (el *EventLoop) Main() {
 		}
 
 		el.processTimeEvents()
+
+		atomic.StoreInt32(&eStatus, EngineStatus_WAITING)
 	}
+
+	return nil
 }

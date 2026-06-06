@@ -3,8 +3,10 @@ package server
 import (
 	"log"
 	"net"
+	"os"
+	"sync"
+	"sync/atomic"
 
-	"runtime"
 	"time"
 
 	_ "net/http/pprof"
@@ -16,7 +18,12 @@ import (
 	"golang.org/x/sys/unix"
 )
 
+const EngineStatus_WAITING int32 = 1 << 1
+const EngineStatus_BUSY int32 = 1 << 2
+const EnngineStatus_SHUTTING_DOWN int32 = 1 << 3
+
 var (
+	eStatus             int32         = EngineStatus_WAITING
 	clientsPendingWrite               = make(map[int]*Client)
 	con_clients                       = 0
 	lastRDB             time.Time     = time.Now()
@@ -193,10 +200,25 @@ func processClientQueryBuffer(loop *EventLoop, client *Client) {
 
 }
 
-func RunAsyncServer() error {
+func WaitForSignal(wg *sync.WaitGroup, sigs chan os.Signal) {
+	defer wg.Done()
+	<-sigs
 
-	runtime.LockOSThread()
-	defer runtime.UnlockOSThread()
+	for atomic.LoadInt32(&eStatus) == EngineStatus_BUSY {
+	}
+
+	atomic.StoreInt32(&eStatus, EnngineStatus_SHUTTING_DOWN)
+
+	core.Shutdown()
+	os.Exit(0)
+}
+
+func RunAsyncServer(wg *sync.WaitGroup) error {
+
+	defer wg.Done()
+	defer func() {
+		atomic.StoreInt32(&eStatus, EnngineStatus_SHUTTING_DOWN)
+	}()
 
 	log.Println("Starting server on ", config.Host, config.Port)
 
@@ -235,7 +257,6 @@ func RunAsyncServer() error {
 
 	loop.AddTimeEvent(1000, ServerCronHandler, nil)
 
-	loop.Main()
+	return loop.Main()
 
-	return nil
 }

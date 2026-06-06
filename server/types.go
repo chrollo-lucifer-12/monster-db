@@ -52,7 +52,6 @@ type EventLoop struct {
 	Fired           []unix.EpollEvent
 	TimeEvents      []*TimeEvent
 	NextTimeEventID int64
-	Stop            bool
 }
 
 func NewClient(fd int) *Client {
@@ -86,5 +85,5 @@ func CreateEventLoop(maxClients int) (*EventLoop, error) {
 	return &EventLoop{EpollFD: epollFD,
 		Events: make(map[int]*FileEvent),
 		Fired:  make([]unix.EpollEvent, maxClients),
-		Stop:   false}, nil
+	}, nil
 }

@@ -9,4 +9,4 @@ var RDBFILE string = "./dump.rdb"
 var KeysLimit int = 100
 var EvictionRatio float64 = 0.40
 var EvictionStrategy string = "allkeys-random"
-var Maxmem int64 = 1024 * 512
+var Maxmem int64 = 1024 * 1024 * 1024
