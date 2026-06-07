@@ -55,6 +55,11 @@ type EventLoop struct {
 	NextTimeEventID int64
 }
 
+func (c *Client) BlockClient(key string) {
+	c.flag |= CLIENT_BLOCKED
+	waitingKeys[key] = append(waitingKeys[key], c)
+}
+
 func NewClient(fd int) *Client {
 
 	qBuf, err := alloc.Alloc(4096)

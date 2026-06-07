@@ -92,3 +92,16 @@ func DeleteExpiredKey() {
 
 	// log.Println("deleted the expired but undeleted keys. total keys", len(store))
 }
+
+func IsEmpty(key string) bool {
+
+	obj, exists := store[key]
+
+	if !exists {
+		return true
+	}
+
+	ql := obj.Value.(*Quicklist)
+
+	return ql.len == 0
+}

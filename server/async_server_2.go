@@ -25,10 +25,18 @@ const EnngineStatus_SHUTTING_DOWN int32 = 1 << 3
 var (
 	eStatus             int32         = EngineStatus_WAITING
 	clientsPendingWrite               = make(map[int]*Client)
+	waitingKeys                       = make(map[string][]*Client)
+	readyKeys                         = make(map[string]struct{})
 	con_clients                       = 0
 	lastRDB             time.Time     = time.Now()
 	rdbFrequency        time.Duration = 900 * time.Second
 )
+
+func MarkReady(key string) {
+	if clients, exists := waitingKeys[key]; exists && len(clients) > 0 {
+		readyKeys[key] = struct{}{}
+	}
+}
 
 func ServerCronHandler(loop *EventLoop, id int64, clientData interface{}) int {
 	now := time.Now()

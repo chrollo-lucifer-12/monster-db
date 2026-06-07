@@ -32,6 +32,7 @@ func main() {
 	alloc.InitGlobalAllocator(config.Maxmem)
 	core.Init()
 	core.Restoreaof()
+	core.MarkReady = server.MarkReady
 	setupFlags()
 	log.Println("starting the server...")
 

@@ -60,13 +60,24 @@ func respondWithError(client io.ReadWriter, err error) {
 
 func respond(cmds core.RedisCmds, client *Client) {
 	for _, cmd := range cmds {
-		if client.flag == 1 && cmd.Cmd != "EXEC" && cmd.Cmd != "DISCARD" {
+		if client.flag == 1 && cmd.Cmd != "EXEC" && cmd.Cmd != "DISCARD" && cmd.Cmd != "BLPOP" {
 			client.multistate.cmds = append(client.multistate.cmds, cmd)
 			client.ReplyBuf = append(client.ReplyBuf, []byte("+QUEUED\r\n")...)
 			continue
 		}
 
 		switch cmd.Cmd {
+
+		case "BLPOP":
+			client.flag = CLIENT_BLOCKED
+			if core.IsEmpty(cmd.Args[0]) {
+				waitingKeys[cmd.Args[0]] = append(waitingKeys[cmd.Args[0]], client)
+			} else {
+				client.ReplyBuf = append(client.ReplyBuf, core.Eval(&core.RedisCmd{
+					Cmd:  "LPOP",
+					Args: []string{cmd.Args[0]},
+				})...)
+			}
 
 		case "MULTI":
 

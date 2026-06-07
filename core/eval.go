@@ -279,6 +279,8 @@ func evalLPUSH(args []string) []byte {
 		ql = obj.Value.(*Quicklist)
 	}
 
+	oldLen := ql.len
+
 	for i := 1; i < len(args); i++ {
 		val, err := strconv.Atoi(args[i])
 		if err != nil {
@@ -286,6 +288,10 @@ func evalLPUSH(args []string) []byte {
 		} else {
 			ql.addToHead(val)
 		}
+	}
+
+	if oldLen == 0 {
+		MarkReady(key)
 	}
 
 	return resp.Encode(ql.len, false)
@@ -313,6 +319,8 @@ func evalRPUSH(args []string) []byte {
 		ql = obj.Value.(*Quicklist)
 	}
 
+	oldLen := ql.len
+
 	for i := 1; i < len(args); i++ {
 		val, err := strconv.Atoi(args[i])
 		if err != nil {
@@ -320,6 +328,10 @@ func evalRPUSH(args []string) []byte {
 		} else {
 			ql.addToTail(val)
 		}
+	}
+
+	if oldLen == 0 {
+		MarkReady(key)
 	}
 
 	return resp.Encode(ql.len, false)

@@ -5,6 +5,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/redis-server/core"
 	"golang.org/x/sys/unix"
 )
 
@@ -95,7 +96,36 @@ func (el *EventLoop) DeleteFileEvent(fd int, mask uint32) {
 	}
 }
 
+func processKeys(loop *EventLoop) {
+	for key := range readyKeys {
+		waitingClients := waitingKeys[key]
+
+		if len(waitingClients) == 0 {
+			delete(readyKeys, key)
+			continue
+		}
+
+		res := core.Eval(&core.RedisCmd{
+			Cmd:  "LPOP",
+			Args: []string{key},
+		})
+
+		client := waitingClients[0]
+		waitingKeys[key] = waitingClients[1:]
+		client.flag &= ^CLIENT_BLOCKED
+
+		client.ReplyBuf = append(client.ReplyBuf, res...)
+		clientsPendingWrite[client.Fd] = client
+
+		delete(readyKeys, key)
+	}
+
+}
+
 func beforeSleep(loop *EventLoop) {
+
+	processKeys(loop)
+
 	for fd, client := range clientsPendingWrite {
 
 		n, err := unix.Write(fd, client.ReplyBuf)
