@@ -280,7 +280,12 @@ func evalLPUSH(args []string) []byte {
 	}
 
 	for i := 1; i < len(args); i++ {
-		ql.addToHead(args[i])
+		val, err := strconv.Atoi(args[i])
+		if err != nil {
+			ql.addToHead(args[i])
+		} else {
+			ql.addToHead(val)
+		}
 	}
 
 	return resp.Encode(ql.len, false)
@@ -315,6 +320,28 @@ func evalRPUSH(args []string) []byte {
 	return resp.Encode(ql.len, false)
 }
 
+func evalLRANGE(args []string) []byte {
+	if len(args) != 3 {
+		return resp.Encode(errors.New("ERR wrong number of arguments for 'lrange' command"), false)
+	}
+
+	var key string = args[0]
+	start, _ := strconv.Atoi(args[1])
+	stop, _ := strconv.Atoi(args[2])
+
+	obj := Get(key)
+
+	if obj == nil {
+		return RESP_NIL
+	}
+
+	ql := obj.Value.(*Quicklist)
+
+	res := ql.GetElements(start, stop)
+
+	return resp.Encode(res, false)
+}
+
 func Eval(cmd *RedisCmd) []byte {
 
 	switch cmd.Cmd {
@@ -346,6 +373,8 @@ func Eval(cmd *RedisCmd) []byte {
 		return evalLPUSH(cmd.Args)
 	case "LLEN":
 		return evalLLEN(cmd.Args)
+	case "LRANGE":
+		return evalLRANGE(cmd.Args)
 	default:
 		return evalPING(cmd.Args)
 	}

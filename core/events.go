@@ -1,5 +1,5 @@
 package core
 
 func Shutdown() {
-	evalBGREWRITE([]string{})
+	// evalBGREWRITE([]string{})
 }
