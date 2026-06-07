@@ -43,16 +43,37 @@ func (lp *Listpack) setElements(n int) {
 	binary.LittleEndian.PutUint16(lp.data[4:6], uint16(n))
 }
 
-func (lp *Listpack) AddInt(val int64) {
+func (lp *Listpack) AddInt(val int64, prepend bool) {
 	enc := encodeInt(val)
-	lp.append(enc)
+	if prepend {
+		lp.prepend(enc)
+	} else {
+		lp.append(enc)
+	}
 	lp.setElements(lp.elements() + 1)
 }
 
-func (lp *Listpack) AddString(s string) {
+func (lp *Listpack) AddString(s string, prepend bool) {
 	enc := encodeString([]byte(s))
-	lp.append(enc)
+	if prepend {
+		lp.prepend(enc)
+	} else {
+		lp.append(enc)
+	}
 	lp.setElements(lp.elements() + 1)
+}
+
+func (lp *Listpack) prepend(entry []byte) {
+	newTotalSize := len(lp.data) + len(entry)
+	newData := make([]byte, newTotalSize)
+
+	copy(newData[:headerSize], lp.data[:headerSize])
+	copy(newData[headerSize:], entry)
+	copy(newData[headerSize+len(entry):], lp.data[headerSize:])
+
+	lp.data = newData
+
+	lp.setTotalLen(newTotalSize)
 }
 
 func (lp *Listpack) append(entry []byte) {
@@ -122,67 +143,4 @@ func encodeString(s []byte) []byte {
 	binary.LittleEndian.PutUint32(out[1:], uint32(n))
 	copy(out[5:], s)
 	return out
-}
-
-func (lp *Listpack) Scan() []any {
-	var res []any
-
-	i := headerSize
-
-	for i < len(lp.data)-1 {
-		val, size := decodeEntry(lp.data[i:])
-		res = append(res, val)
-		i += size
-	}
-
-	return res
-}
-
-func decodeEntry(b []byte) (any, int) {
-	if len(b) == 0 {
-		return nil, 0
-	}
-
-	enc := b[0]
-
-	if enc < 0x80 {
-		return int64(enc), 1
-	}
-
-	if enc&0xC0 == 0x80 {
-		val := int(enc&0x3F)<<8 | int(b[1])
-		return int64(val), 2
-	}
-
-	if enc == 0xC0 {
-		val := int16(binary.LittleEndian.Uint16(b[1:3]))
-		return int64(val), 3
-	}
-
-	if enc == 0xD0 {
-		val := int32(binary.LittleEndian.Uint32(b[1:5]))
-		return int64(val), 5
-	}
-
-	if enc == 0xE0 {
-		val := int64(binary.LittleEndian.Uint64(b[1:9]))
-		return val, 9
-	}
-
-	if enc&0xC0 == 0x00 {
-		n := int(enc & 0x3F)
-		return string(b[1 : 1+n]), 1 + n
-	}
-
-	if enc&0xC0 == 0x40 {
-		n := int(enc&0x3F)<<8 | int(b[1])
-		return string(b[2 : 2+n]), 2 + n
-	}
-
-	if enc == 0x80 {
-		n := int(binary.LittleEndian.Uint32(b[1:5]))
-		return string(b[5 : 5+n]), 5 + n
-	}
-
-	return nil, 1
 }
