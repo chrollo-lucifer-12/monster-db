@@ -314,7 +314,12 @@ func evalRPUSH(args []string) []byte {
 	}
 
 	for i := 1; i < len(args); i++ {
-		ql.addToTail(args[i])
+		val, err := strconv.Atoi(args[i])
+		if err != nil {
+			ql.addToTail(args[i])
+		} else {
+			ql.addToTail(val)
+		}
 	}
 
 	return resp.Encode(ql.len, false)

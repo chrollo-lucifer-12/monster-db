@@ -100,129 +100,128 @@ func (lp *Listpack) decodeAt(pos int) (any, int) {
 		return nil, 0
 	}
 
-	b := lp.data[pos]
+	t := lp.data[pos]
+	idx := pos + 1
 
-	if b < 0x80 {
-		return int64(b), 1
-	}
-
-	if b&0xC0 == 0x80 {
-		if pos+1 >= len(lp.data) {
+	if t == TYPE_INT {
+		if idx >= len(lp.data) {
 			return nil, 0
 		}
-		v := int64(b&0x3F)<<8 | int64(lp.data[pos+1])
-		return v, 2
+		b := lp.data[idx]
+
+		if b < 0x80 {
+			return int64(b), 2
+		}
+		if b&0xC0 == 0x80 {
+			if idx+1 >= len(lp.data) {
+				return nil, 0
+			}
+			v := int64(b&0x3F)<<8 | int64(lp.data[idx+1])
+			return v, 3
+		}
+		if b == 0xC0 {
+			if idx+3 > len(lp.data) {
+				return nil, 0
+			}
+			v := int64(int16(binary.LittleEndian.Uint16(lp.data[idx+1 : idx+3])))
+			return v, 4
+		}
+		if b == 0xD0 {
+			if idx+5 > len(lp.data) {
+				return nil, 0
+			}
+			v := int64(int32(binary.LittleEndian.Uint32(lp.data[idx+1 : idx+5])))
+			return v, 6
+		}
+		if b == 0xE0 {
+			if idx+9 > len(lp.data) {
+				return nil, 0
+			}
+			v := int64(binary.LittleEndian.Uint64(lp.data[idx+1 : idx+9]))
+			return v, 10
+		}
 	}
 
-	if b == 0xC0 {
-		if pos+3 > len(lp.data) {
+	if t == TYPE_STRING {
+		if idx >= len(lp.data) {
 			return nil, 0
 		}
-		v := int64(int16(binary.LittleEndian.Uint16(lp.data[pos+1 : pos+3])))
-		return v, 3
-	}
+		b := lp.data[idx]
 
-	if b == 0xD0 {
-		if pos+5 > len(lp.data) {
+		if b < 0x40 {
+			length := int(b & 0x3F)
+			if idx+1+length > len(lp.data) {
+				return nil, 0
+			}
+			return string(lp.data[idx+1 : idx+1+length]), 2 + length
+		}
+		if b < 0x80 {
+			if idx+2 > len(lp.data) {
+				return nil, 0
+			}
+			length := int(b&0x3F)<<8 | int(lp.data[idx+1])
+			if idx+2+length > len(lp.data) {
+				return nil, 0
+			}
+			return string(lp.data[idx+2 : idx+2+length]), 3 + length
+		}
+		if idx+5 > len(lp.data) {
 			return nil, 0
 		}
-		v := int64(int32(binary.LittleEndian.Uint32(lp.data[pos+1 : pos+5])))
-		return v, 5
-	}
-
-	if b == 0xE0 {
-		if pos+9 > len(lp.data) {
+		length := int(binary.LittleEndian.Uint32(lp.data[idx+1 : idx+5]))
+		if idx+5+length > len(lp.data) {
 			return nil, 0
 		}
-		v := int64(binary.LittleEndian.Uint64(lp.data[pos+1 : pos+9]))
-		return v, 9
+		return string(lp.data[idx+5 : idx+5+length]), 6 + length
 	}
 
-	if b < 0x40 {
-		length := int(b & 0x3F)
-		if pos+1+length > len(lp.data) {
-			return nil, 0
-		}
-		return string(lp.data[pos+1 : pos+1+length]), 1 + length
-	}
-
-	if b < 0x80 {
-		if pos+2 > len(lp.data) {
-			return nil, 0
-		}
-		length := int(b&0x3F)<<8 | int(lp.data[pos+1])
-		if pos+2+length > len(lp.data) {
-			return nil, 0
-		}
-		return string(lp.data[pos+2 : pos+2+length]), 2 + length
-	}
-
-	if pos+5 > len(lp.data) {
-		return nil, 0
-	}
-
-	length := int(binary.LittleEndian.Uint32(lp.data[pos+1 : pos+5]))
-
-	if pos+5+length > len(lp.data) {
-		return nil, 0
-	}
-
-	return string(lp.data[pos+5 : pos+5+length]), 5 + length
+	return nil, 0
 }
+
 func encodeInt(v int64) []byte {
-
+	var b []byte
 	if v >= 0 && v < 128 {
-		return []byte{byte(v)}
-	}
-
-	if v >= 0 && v < (1<<13) {
-		b := make([]byte, 2)
+		b = []byte{byte(v)}
+	} else if v >= 0 && v < (1<<13) {
+		b = make([]byte, 2)
 		b[0] = 0x80 | byte(v>>8)
 		b[1] = byte(v)
-		return b
-	}
-
-	if v >= math.MinInt16 && v <= math.MaxInt16 {
-		b := make([]byte, 3)
+	} else if v >= math.MinInt16 && v <= math.MaxInt16 {
+		b = make([]byte, 3)
 		b[0] = 0xC0
 		binary.LittleEndian.PutUint16(b[1:], uint16(v))
-		return b
-	}
-
-	if v >= math.MinInt32 && v <= math.MaxInt32 {
-		b := make([]byte, 5)
+	} else if v >= math.MinInt32 && v <= math.MaxInt32 {
+		b = make([]byte, 5)
 		b[0] = 0xD0
 		binary.LittleEndian.PutUint32(b[1:], uint32(v))
-		return b
+	} else {
+		b = make([]byte, 9)
+		b[0] = 0xE0
+		binary.LittleEndian.PutUint64(b[1:], uint64(v))
 	}
 
-	b := make([]byte, 9)
-	b[0] = 0xE0
-	binary.LittleEndian.PutUint64(b[1:], uint64(v))
-	return b
+	return append([]byte{TYPE_INT}, b...)
 }
 
 func encodeString(s []byte) []byte {
 	n := len(s)
+	var b []byte
 
 	if n < 64 {
-		out := make([]byte, 1+n)
-		out[0] = byte(n & 0x3F) // keep last 6 bits
-		copy(out[1:], s)
-		return out
+		b = make([]byte, 1+n)
+		b[0] = byte(n & 0x3F)
+		copy(b[1:], s)
+	} else if n < 16384 {
+		b = make([]byte, 2+n)
+		b[0] = 0x40 | byte(n>>8)
+		b[1] = byte(n)
+		copy(b[2:], s)
+	} else {
+		b = make([]byte, 5+n)
+		b[0] = 0x80
+		binary.LittleEndian.PutUint32(b[1:], uint32(n))
+		copy(b[5:], s)
 	}
 
-	if n < 16384 {
-		out := make([]byte, 2+n)
-		out[0] = 0x40 | byte(n>>8) // marker + 6 high bits
-		out[1] = byte(n)           // low 8 bits
-		copy(out[2:], s)
-		return out
-	}
-
-	out := make([]byte, 5+n)
-	out[0] = 0x80
-	binary.LittleEndian.PutUint32(out[1:], uint32(n))
-	copy(out[5:], s)
-	return out
+	return append([]byte{TYPE_STRING}, b...)
 }

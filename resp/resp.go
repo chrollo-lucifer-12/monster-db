@@ -151,29 +151,60 @@ func encodeString(v string) []byte {
 
 func Encode(value any, isSimple bool) []byte {
 	switch v := value.(type) {
+
 	case string:
 		if isSimple {
 			return []byte(fmt.Sprintf("+%s\r\n", v))
 		}
 		return encodeString(v)
-	case int, int8, int16, int32, int64:
+
+	case int:
 		return []byte(fmt.Sprintf(":%d\r\n", v))
 
-	case []string:
-		var b []byte
-		buf := bytes.NewBuffer(b)
+	case int64:
+		return []byte(fmt.Sprintf(":%d\r\n", v))
 
-		for _, b := range value.([]string) {
-			buf.Write(encodeString(b))
+	case int32:
+		return []byte(fmt.Sprintf(":%d\r\n", v))
+
+	case int16:
+		return []byte(fmt.Sprintf(":%d\r\n", v))
+
+	case int8:
+		return []byte(fmt.Sprintf(":%d\r\n", v))
+
+	// ✅ FIXED: supports ANY slice type
+	case []any:
+		var buf bytes.Buffer
+
+		buf.WriteString(fmt.Sprintf("*%d\r\n", len(v)))
+
+		for _, item := range v {
+			buf.Write(Encode(item, false))
 		}
 
-		return []byte(fmt.Sprintf("*%d\r\n%s", len(v), buf.Bytes()))
+		return buf.Bytes()
+
+	case []string:
+		var buf bytes.Buffer
+
+		buf.WriteString(fmt.Sprintf("*%d\r\n", len(v)))
+
+		for _, item := range v {
+			buf.Write(Encode(item, false))
+		}
+
+		return buf.Bytes()
 
 	case error:
 		return []byte(fmt.Sprintf("-%s\r\n", v))
 	}
 
-	return []byte{}
+	// fallback
+	return []byte(fmt.Sprintf("$%d\r\n%v\r\n",
+		len(fmt.Sprint(value)),
+		value,
+	))
 }
 
 func EncodeExecArray(results [][]byte) []byte {

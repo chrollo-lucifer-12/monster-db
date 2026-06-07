@@ -1,7 +1,5 @@
 package core
 
-import "log"
-
 const maxListpackBytes = 1000
 
 type QuicklistNode struct {
@@ -33,15 +31,15 @@ func NewQuicklist() *Quicklist {
 func add(node *QuicklistNode, val any, prepend bool) {
 	switch v := val.(type) {
 	case int:
-		log.Printf("adding as int")
+
 		node.lp.AddInt(int64(v), prepend)
 
 	case int64:
-		log.Printf("adding as int64")
+
 		node.lp.AddInt(v, prepend)
 
 	case string:
-		log.Printf("adding as string")
+
 		node.lp.AddString(v, prepend)
 
 	default:
@@ -115,7 +113,6 @@ func (ql *Quicklist) GetElements(start, stop int) []any {
 			}
 
 			if index >= start && index <= stop {
-				log.Println(val, size)
 				result = append(result, val)
 			}
 
@@ -127,6 +124,7 @@ func (ql *Quicklist) GetElements(start, stop int) []any {
 			}
 
 		}
+
 	}
 
 	return result
