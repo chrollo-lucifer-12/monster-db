@@ -105,7 +105,7 @@ func beforeSleep(loop *EventLoop) {
 				loop.AddFileEvent(fd, unix.EPOLLOUT, SendReplyToClient, client)
 				continue
 			}
-			log.Printf("Greedy write error on FD %d: %v\n", fd, err)
+
 			freeClient(loop, client)
 			delete(clientsPendingWrite, fd)
 			continue

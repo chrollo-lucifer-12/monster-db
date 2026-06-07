@@ -1,6 +1,6 @@
 package core
 
-const maxListpackBytes = 1000
+const maxListpackBytes = 128
 
 type QuicklistNode struct {
 	lp   *Listpack
