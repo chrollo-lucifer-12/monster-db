@@ -62,6 +62,37 @@ func Restoreaof() {
 	}
 
 	decoded, _, err := resp.Decode(data)
+	if err != nil {
+		fmt.Println("decode error:", err)
+		return
+	}
 
-	fmt.Println(decoded...)
+	for _, raw := range decoded {
+		arr, ok := raw.([]interface{})
+		if !ok || len(arr) == 0 {
+			continue
+		}
+
+		cmdName, ok := arr[0].(string)
+		if !ok {
+			continue
+		}
+
+		args := make([]string, 0, len(arr)-1)
+
+		for _, v := range arr[1:] {
+			if s, ok := v.(string); ok {
+				args = append(args, s)
+			}
+		}
+
+		cmd := RedisCmd{
+			Cmd:  cmdName,
+			Args: args,
+		}
+
+		Eval(&cmd)
+	}
+
+	fmt.Println("AOF replay done")
 }

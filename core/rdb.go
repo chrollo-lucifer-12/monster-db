@@ -3,8 +3,9 @@ package core
 import (
 	"encoding/binary"
 	"fmt"
+	"log"
 	"os"
-	"os/exec"
+	"syscall"
 
 	"github.com/redis-server/config"
 )
@@ -81,12 +82,19 @@ func SaveRDB() {
 
 func TriggerRDB() []byte {
 
-	cmd := exec.Command("go", "run", "main.go", "--rdb-dump")
+	r1, _, err1 := syscall.RawSyscall(syscall.SYS_FORK, 0, 0, 0)
 
-	err := cmd.Start()
-	if err != nil {
-		return RESP_MINUS_ONE
+	if err1 != 0 {
+		log.Println("Fork failed:", err1)
+		return []byte("-ERR background save failed\r\n")
 	}
 
+	if r1 == 0 {
+		SaveRDB()
+		os.Exit(0)
+	}
+
+	log.Printf("Background save started in child process (PID: %d)\n", r1)
 	return RESP_OK
+
 }

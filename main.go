@@ -23,16 +23,6 @@ func setupFlags() {
 
 func main() {
 
-	if len(os.Args) > 1 && os.Args[1] == "--rdb-dump" {
-		core.SaveRDB()
-		return
-	}
-
-	if len(os.Args) > 1 && os.Args[1] == "--rewrite-aof" {
-		core.DumpAllAOF()
-		return
-	}
-
 	var sigs chan os.Signal = make(chan os.Signal, 1)
 	signal.Notify(sigs, unix.SIGTERM, unix.SIGINT)
 
@@ -41,7 +31,7 @@ func main() {
 
 	alloc.InitGlobalAllocator(config.Maxmem)
 	core.Init()
-	//	core.RESTOREAOF()
+	core.Restoreaof()
 	setupFlags()
 	log.Println("starting the server...")
 
