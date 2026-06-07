@@ -89,6 +89,43 @@ func (ql *Quicklist) addToHead(val any) {
 	ql.len++
 }
 
+func (ql *Quicklist) RemoveElements(count int) []any {
+	if ql.head == nil || ql.len == 0 {
+		return nil
+	}
+
+	var result []any
+
+	for node := ql.head; node != nil; node = node.next {
+		lp := node.lp
+		pos := headerSize
+
+		for pos < len(lp.data) && lp.data[pos] != endByte {
+			val, size := lp.decodeAt(pos)
+
+			if size <= 0 {
+				return result
+			}
+
+			if val == nil {
+				break
+			}
+
+			result = append(result, val)
+
+			lp.remove(pos, size)
+			pos += size
+			count--
+
+			if count == 0 {
+				return result
+			}
+		}
+	}
+
+	return result
+}
+
 func (ql *Quicklist) GetElements(start, stop int) []any {
 	if ql.head == nil || ql.len == 0 {
 		return nil

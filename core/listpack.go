@@ -62,6 +62,24 @@ func (lp *Listpack) AddInt(val int64, prepend bool) {
 
 }
 
+func (lp *Listpack) remove(pos int, length int) {
+	oldLen := len(lp.data)
+
+	if lp.data == nil || pos < 0 || pos >= oldLen || length <= 0 {
+		return
+	}
+
+	if pos+length > oldLen {
+		length = oldLen - pos
+	}
+
+	copy(lp.data[pos:], lp.data[pos+length:oldLen])
+
+	lp.data = lp.data[:oldLen-length]
+
+	lp.setMeta(-1)
+}
+
 func (lp *Listpack) insert(pos int, entry []byte) {
 	oldLen := len(lp.data)
 	addLen := len(entry)

@@ -347,6 +347,31 @@ func evalLRANGE(args []string) []byte {
 	return resp.Encode(res, false)
 }
 
+func evalLPOP(args []string) []byte {
+	if len(args) < 1 {
+		return resp.Encode(errors.New("ERR wrong number of arguments for 'lpop' command"), false)
+	}
+
+	var key string = args[0]
+	count := 1
+
+	if len(args) == 2 {
+		count, _ = strconv.Atoi(args[1])
+	}
+
+	obj := Get(key)
+
+	if obj == nil {
+		return RESP_NIL
+	}
+
+	ql := obj.Value.(*Quicklist)
+
+	res := ql.RemoveElements(count)
+
+	return resp.Encode(res, false)
+}
+
 func Eval(cmd *RedisCmd) []byte {
 
 	switch cmd.Cmd {
@@ -380,6 +405,8 @@ func Eval(cmd *RedisCmd) []byte {
 		return evalLLEN(cmd.Args)
 	case "LRANGE":
 		return evalLRANGE(cmd.Args)
+	case "LPOP":
+		return evalLPOP(cmd.Args)
 	default:
 		return evalPING(cmd.Args)
 	}
