@@ -236,6 +236,27 @@ func evalSLEEP(args []string) []byte {
 	return RESP_OK
 }
 
+func evalLLEN(args []string) []byte {
+	if len(args) != 1 {
+		return resp.Encode(errors.New("(error) ERR wrong number of arguments for 'llen' command"), false)
+	}
+
+	var key string = args[0]
+	obj := Get(key)
+
+	if obj == nil {
+		return RESP_ZERO
+	}
+
+	if err := assertType(obj.TypeEncoding, OBJ_TYPE_LIST); err != nil {
+		return RESP_ZERO
+	}
+
+	ql := obj.Value.(*Quicklist)
+
+	return resp.Encode(ql.len, false)
+}
+
 func evalLPUSH(args []string) []byte {
 	if len(args) < 2 {
 		return resp.Encode(errors.New("ERR wrong number of arguments for 'lpush' command"), false)
@@ -260,6 +281,35 @@ func evalLPUSH(args []string) []byte {
 
 	for i := 1; i < len(args); i++ {
 		ql.addToHead(args[i])
+	}
+
+	return resp.Encode(ql.len, false)
+}
+
+func evalRPUSH(args []string) []byte {
+	if len(args) < 2 {
+		return resp.Encode(errors.New("ERR wrong number of arguments for 'lpush' command"), false)
+	}
+
+	var key string = args[0]
+	obj := Get(key)
+
+	var ql *Quicklist
+
+	if obj == nil {
+		ql = NewQuicklist()
+		obj = NewObj(ql, -1, OBJ_TYPE_LIST, OBJ_ENCODING_LISTPACK)
+		Put(key, obj)
+	} else {
+		if err := assertType(obj.TypeEncoding, OBJ_TYPE_LIST); err != nil {
+			return resp.Encode(errors.New("WRONGTYPE Operation against a key holding the wrong kind of value"), false)
+		}
+
+		ql = obj.Value.(*Quicklist)
+	}
+
+	for i := 1; i < len(args); i++ {
+		ql.addToTail(args[i])
 	}
 
 	return resp.Encode(ql.len, false)
@@ -290,11 +340,14 @@ func Eval(cmd *RedisCmd) []byte {
 		return evalLATENCY(cmd.Args)
 	case "SLEEP":
 		return evalSLEEP(cmd.Args)
+	case "RPUSH":
+		return evalRPUSH(cmd.Args)
 	case "LPUSH":
 		return evalLPUSH(cmd.Args)
+	case "LLEN":
+		return evalLLEN(cmd.Args)
 	default:
 		return evalPING(cmd.Args)
 	}
 
-	return nil
 }
