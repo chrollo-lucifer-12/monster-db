@@ -23,6 +23,8 @@ type Client struct {
 	ReplyBuf   []byte
 	flag       uint8
 	multistate Multistate
+	key        []byte
+	when       time.Time
 }
 
 type ReplyBufferWrapper struct {

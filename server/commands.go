@@ -5,6 +5,7 @@ import (
 	"io"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/redis-server/core"
 	"github.com/redis-server/resp"
@@ -70,17 +71,23 @@ func respond(cmds core.RedisCmds, client *Client, loop *EventLoop) {
 		switch cmd.Cmd {
 
 		case "BLPOP":
-			client.flag = CLIENT_BLOCKED
+			client.flag |= CLIENT_BLOCKED
 			if core.IsEmpty(cmd.Args[0]) {
 				waitingKeys[cmd.Args[0]] = append(waitingKeys[cmd.Args[0]], client)
 				timeout, _ := strconv.Atoi(cmd.Args[1])
-				loop.AddTimeEvent(int64(timeout), SendDelayedResponse, client)
+				if timeout > 0 {
+					client.when = time.Now().Add(time.Duration(timeout) * time.Millisecond)
+				} else {
+					client.when = time.Time{}
+				}
 			} else {
 				client.ReplyBuf = append(client.ReplyBuf, core.Eval(&core.RedisCmd{
 					Cmd:  "LPOP",
 					Args: []string{cmd.Args[0]},
 				})...)
 			}
+
+			return
 
 		case "MULTI":
 

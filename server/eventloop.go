@@ -113,6 +113,7 @@ func processKeys(loop *EventLoop) {
 		client := waitingClients[0]
 		waitingKeys[key] = waitingClients[1:]
 		client.flag &= ^CLIENT_BLOCKED
+		client.when = time.Time{}
 
 		client.ReplyBuf = append(client.ReplyBuf, res...)
 		clientsPendingWrite[client.Fd] = client

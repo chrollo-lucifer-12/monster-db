@@ -38,15 +38,36 @@ func MarkReady(key string) {
 	}
 }
 
-func SendDelayedResponse(loop *EventLoop, id int64, clientData interface{}) int {
+func HandleBlockedClients(loop *EventLoop, id int64, clientData any) int {
 
-	client := clientData.(*Client)
+	now := time.Now()
 
-	fd := client.Fd
+	for key, clients := range waitingKeys {
+		var activeClients []*Client
 
-	unix.Write(fd, core.RESP_NIL)
+		for _, client := range clients {
 
-	return 1000
+			if !client.when.IsZero() && now.After(client.when) {
+				client.flag &= ^CLIENT_BLOCKED
+				client.when = time.Time{}
+
+				client.ReplyBuf = append(client.ReplyBuf, []byte("$-1\r\n")...)
+
+				clientsPendingWrite[client.Fd] = client
+			} else {
+				activeClients = append(activeClients, client)
+			}
+
+		}
+
+		if len(activeClients) == 0 {
+			delete(waitingKeys, key)
+		} else {
+			waitingKeys[key] = activeClients
+		}
+	}
+
+	return 100
 }
 
 func ServerCronHandler(loop *EventLoop, id int64, clientData interface{}) int {
@@ -115,6 +136,10 @@ func freeClient(loop *EventLoop, client *Client) {
 
 func ReadQueryFromClient(loop *EventLoop, fd int, clientData interface{}) {
 	client := clientData.(*Client)
+
+	if (client.flag & CLIENT_BLOCKED) != 0 {
+		return
+	}
 
 	for {
 
@@ -275,6 +300,7 @@ func RunAsyncServer(wg *sync.WaitGroup) error {
 	}
 
 	loop.AddTimeEvent(1000, ServerCronHandler, nil)
+	loop.AddTimeEvent(100, HandleBlockedClients, nil)
 
 	return loop.Main()
 
