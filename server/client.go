@@ -27,34 +27,13 @@ type Client struct {
 	when       time.Time
 }
 
-type ReplyBufferWrapper struct {
-	client *Client
-}
+func freeClient(loop *EventLoop, client *Client) {
+	loop.DeleteFileEvent(client.Fd, unix.EPOLLIN|unix.EPOLLOUT)
+	unix.Close(client.Fd)
+	con_clients--
 
-type TimeProc func(loop *EventLoop, id int64, clientData interface{}) int
-
-type TimeEvent struct {
-	ID         int64
-	When       time.Time
-	Proc       TimeProc
-	ClientData interface{}
-}
-
-type FileProc func(loop *EventLoop, fd int, clientData interface{})
-
-type FileEvent struct {
-	Mask       uint32
-	ReadProc   FileProc
-	WriteProc  FileProc
-	ClientData interface{}
-}
-
-type EventLoop struct {
-	EpollFD         int
-	Events          map[int]*FileEvent
-	Fired           []unix.EpollEvent
-	TimeEvents      []*TimeEvent
-	NextTimeEventID int64
+	alloc.Free(client.QueryBuf)
+	alloc.Free(client.ReplyBuf)
 }
 
 func (c *Client) BlockClient(key string) {
@@ -82,16 +61,4 @@ func NewClient(fd int) *Client {
 		QueryBuf: qBuf[:0],
 		ReplyBuf: rBuf[:0],
 	}
-}
-
-func CreateEventLoop(maxClients int) (*EventLoop, error) {
-	epollFD, err := unix.EpollCreate1(0)
-	if err != nil {
-		return nil, err
-	}
-
-	return &EventLoop{EpollFD: epollFD,
-		Events: make(map[int]*FileEvent),
-		Fired:  make([]unix.EpollEvent, maxClients),
-	}, nil
 }
