@@ -6,7 +6,6 @@ import (
 
 	"github.com/redis-server/alloc"
 	"github.com/redis-server/core"
-	"golang.org/x/sys/unix"
 )
 
 var MULTI_MODE uint8 = 00000001
@@ -49,14 +48,6 @@ type FileEvent struct {
 	ClientData interface{}
 }
 
-type EventLoop struct {
-	EpollFD         int
-	Events          map[int]*FileEvent
-	Fired           []unix.EpollEvent
-	TimeEvents      []*TimeEvent
-	NextTimeEventID int64
-}
-
 func (c *Client) BlockClient(key string) {
 	c.flag |= CLIENT_BLOCKED
 	waitingKeys[key] = append(waitingKeys[key], c)
@@ -82,16 +73,4 @@ func NewClient(fd int) *Client {
 		QueryBuf: qBuf[:0],
 		ReplyBuf: rBuf[:0],
 	}
-}
-
-func CreateEventLoop(maxClients int) (*EventLoop, error) {
-	epollFD, err := unix.EpollCreate1(0)
-	if err != nil {
-		return nil, err
-	}
-
-	return &EventLoop{EpollFD: epollFD,
-		Events: make(map[int]*FileEvent),
-		Fired:  make([]unix.EpollEvent, maxClients),
-	}, nil
 }

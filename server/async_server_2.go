@@ -22,16 +22,6 @@ const EngineStatus_WAITING int32 = 1 << 1
 const EngineStatus_BUSY int32 = 1 << 2
 const EnngineStatus_SHUTTING_DOWN int32 = 1 << 3
 
-var (
-	eStatus             int32         = EngineStatus_WAITING
-	clientsPendingWrite               = make(map[int]*Client)
-	waitingKeys                       = make(map[string][]*Client)
-	readyKeys                         = make(map[string]struct{})
-	con_clients                       = 0
-	lastRDB             time.Time     = time.Now()
-	rdbFrequency        time.Duration = 900 * time.Second
-)
-
 func MarkReady(key string) {
 	if clients, exists := waitingKeys[key]; exists && len(clients) > 0 {
 		readyKeys[key] = struct{}{}
@@ -83,48 +73,6 @@ func ServerCronHandler(loop *EventLoop, id int64, clientData interface{}) int {
 	return 1000
 }
 
-func AcceptTcpHandler(el *EventLoop, serverFD int, clientData interface{}) {
-
-	for {
-		fd, _, err := unix.Accept(serverFD)
-		if err != nil {
-			if err == unix.EAGAIN || err == unix.EWOULDBLOCK {
-
-				break
-			}
-
-			if err == unix.EMFILE || err == unix.ENFILE {
-
-				break
-			}
-
-			log.Println("Accept Error: ", err)
-			return
-		}
-
-		if err := unix.SetNonblock(fd, true); err != nil {
-			log.Println("SerNonBlock error :", err)
-			unix.Close(fd)
-			continue
-		}
-
-		if err := unix.SetsockoptInt(fd, unix.IPPROTO_TCP, unix.TCP_NODELAY, 1); err != nil {
-			log.Println("Set TCP_NODELAY error :", err)
-		}
-
-		client := NewClient(fd)
-
-		err = el.AddFileEvent(fd, unix.EPOLLIN, ReadQueryFromClient, client)
-		if err != nil {
-			log.Println("Failed to add client to epoll: ", err)
-			unix.Close(fd)
-			continue
-		}
-
-		con_clients++
-	}
-}
-
 func freeClient(loop *EventLoop, client *Client) {
 	loop.DeleteFileEvent(client.Fd, unix.EPOLLIN|unix.EPOLLOUT)
 	unix.Close(client.Fd)
@@ -132,116 +80,6 @@ func freeClient(loop *EventLoop, client *Client) {
 
 	alloc.Free(client.QueryBuf)
 	alloc.Free(client.ReplyBuf)
-}
-
-func ReadQueryFromClient(loop *EventLoop, fd int, clientData interface{}) {
-	client := clientData.(*Client)
-
-	if (client.flag & CLIENT_BLOCKED) != 0 {
-		return
-	}
-
-	for {
-
-		if len(client.QueryBuf) == cap(client.QueryBuf) {
-			newCap := cap(client.QueryBuf) * 2
-			if newCap == 0 {
-				newCap = 4096
-			}
-
-			newBuf, err := alloc.Alloc(newCap)
-			if err != nil {
-				log.Println("OOM: Client sent too much data, disconnecting")
-				freeClient(loop, client)
-				return
-			}
-
-			newBuf = newBuf[:len(client.QueryBuf)]
-			copy(newBuf, client.QueryBuf)
-
-			alloc.Free(client.QueryBuf)
-
-			client.QueryBuf = newBuf
-		}
-
-		freeSpace := client.QueryBuf[len(client.QueryBuf):cap(client.QueryBuf)]
-
-		n, err := unix.Read(fd, freeSpace)
-		if err != nil {
-
-			if err == unix.EAGAIN || err == unix.EWOULDBLOCK {
-				break
-			}
-
-			log.Printf("Read error on FD %d: %v\n", fd, err)
-			freeClient(loop, client)
-			return
-		}
-
-		if n == 0 {
-			//	log.Printf("Client on FD %d disconnected gracefully", fd)
-			freeClient(loop, client)
-			return
-		}
-
-		client.QueryBuf = client.QueryBuf[:len(client.QueryBuf)+n]
-
-		processClientQueryBuffer(loop, client)
-	}
-}
-
-func SendReplyToClient(loop *EventLoop, fd int, clientData interface{}) {
-	client := clientData.(*Client)
-
-	if len(client.ReplyBuf) == 0 {
-		loop.DeleteFileEvent(fd, unix.EPOLLOUT)
-		return
-	}
-
-	n, err := unix.Write(fd, client.ReplyBuf)
-	if err != nil {
-		if err == unix.EAGAIN || err == unix.EWOULDBLOCK {
-			return
-		}
-
-		log.Printf("Write error on FD %d: %v\n", fd, err)
-		freeClient(loop, client)
-		return
-	}
-
-	client.ReplyBuf = client.ReplyBuf[n:]
-
-	if len(client.ReplyBuf) == 0 {
-		client.ReplyBuf = client.ReplyBuf[:0]
-		loop.DeleteFileEvent(fd, unix.EPOLLOUT)
-	}
-}
-
-func processClientQueryBuffer(loop *EventLoop, client *Client) {
-
-	cmds, bytesConsumed, err := readCommands(client.QueryBuf)
-
-	if err != nil {
-		log.Println("Parsing error:", err)
-		freeClient(loop, client)
-		return
-	}
-
-	if bytesConsumed > 0 {
-		copy(client.QueryBuf, client.QueryBuf[bytesConsumed:])
-		client.QueryBuf = client.QueryBuf[:len(client.QueryBuf)-bytesConsumed]
-	}
-
-	if len(cmds) == 0 {
-		return
-	}
-
-	respond(cmds, client, loop)
-
-	if len(client.ReplyBuf) > 0 {
-		clientsPendingWrite[client.Fd] = client
-	}
-
 }
 
 func WaitForSignal(wg *sync.WaitGroup, sigs chan os.Signal) {
