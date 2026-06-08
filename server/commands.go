@@ -3,6 +3,7 @@ package server
 import (
 	"fmt"
 	"io"
+	"strconv"
 	"strings"
 
 	"github.com/redis-server/core"
@@ -58,7 +59,7 @@ func respondWithError(client io.ReadWriter, err error) {
 	client.Write([]byte(fmt.Sprintf("-%s\r\n", err)))
 }
 
-func respond(cmds core.RedisCmds, client *Client) {
+func respond(cmds core.RedisCmds, client *Client, loop *EventLoop) {
 	for _, cmd := range cmds {
 		if client.flag == 1 && cmd.Cmd != "EXEC" && cmd.Cmd != "DISCARD" && cmd.Cmd != "BLPOP" {
 			client.multistate.cmds = append(client.multistate.cmds, cmd)
@@ -72,6 +73,8 @@ func respond(cmds core.RedisCmds, client *Client) {
 			client.flag = CLIENT_BLOCKED
 			if core.IsEmpty(cmd.Args[0]) {
 				waitingKeys[cmd.Args[0]] = append(waitingKeys[cmd.Args[0]], client)
+				timeout, _ := strconv.Atoi(cmd.Args[1])
+				loop.AddTimeEvent(int64(timeout), SendDelayedResponse, client)
 			} else {
 				client.ReplyBuf = append(client.ReplyBuf, core.Eval(&core.RedisCmd{
 					Cmd:  "LPOP",

@@ -38,6 +38,17 @@ func MarkReady(key string) {
 	}
 }
 
+func SendDelayedResponse(loop *EventLoop, id int64, clientData interface{}) int {
+
+	client := clientData.(*Client)
+
+	fd := client.Fd
+
+	unix.Write(fd, core.RESP_NIL)
+
+	return 1000
+}
+
 func ServerCronHandler(loop *EventLoop, id int64, clientData interface{}) int {
 	now := time.Now()
 
@@ -200,7 +211,7 @@ func processClientQueryBuffer(loop *EventLoop, client *Client) {
 		return
 	}
 
-	respond(cmds, client)
+	respond(cmds, client, loop)
 
 	if len(client.ReplyBuf) > 0 {
 		clientsPendingWrite[client.Fd] = client
