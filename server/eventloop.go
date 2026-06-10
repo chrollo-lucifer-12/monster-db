@@ -8,6 +8,10 @@ import (
 	"golang.org/x/sys/unix"
 )
 
+const (
+	PubSubHardLimit = 32 * 1024 * 1024
+)
+
 type EventLoop struct {
 	EpollFD         int
 	Events          map[int]*FileEvent
@@ -33,6 +37,11 @@ func beforeSleep(loop *EventLoop) {
 	processKeys(loop)
 
 	for fd, client := range clientsPendingWrite {
+
+		if isSlowClient(client) {
+			cleanupClient(client, loop)
+			continue
+		}
 
 		n, err := unix.Write(fd, client.ReplyBuf)
 

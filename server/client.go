@@ -44,6 +44,32 @@ func (c *Client) BlockClient(key string) {
 	waitingKeys[key] = append(waitingKeys[key], c)
 }
 
+func isSlowClient(client *Client) bool {
+	bufSize := len(client.ReplyBuf)
+
+	if bufSize >= PubSubHardLimit {
+		return true
+	}
+
+	return false
+}
+
+func cleanupClient(client *Client, loop *EventLoop) {
+	freeClient(loop, client)
+
+	delete(clientsPendingWrite, client.Fd)
+
+	for key := range client.subscriptions {
+		subscribers[key] = removeClient(subscribers[key], client)
+		if len(subscribers[key]) == 0 {
+			delete(subscribers, key)
+		}
+	}
+
+	client.ReplyBuf = nil
+	client.subscriptions = nil
+}
+
 func NewClient(fd int) *Client {
 
 	qBuf, err := alloc.Alloc(4096)
