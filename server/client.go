@@ -11,6 +11,7 @@ import (
 
 var MULTI_MODE uint8 = 00000001
 var CLIENT_BLOCKED uint8 = 00000010
+var CLIENT_SUB uint8 = 00000100
 
 type Multistate struct {
 	cmds    core.RedisCmds
