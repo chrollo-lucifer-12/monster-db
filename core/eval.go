@@ -385,15 +385,15 @@ func evalLPOP(args []string) []byte {
 }
 
 func evalBFRESERVE(args []string) []byte {
-	if len(args) != 3 {
+	if len(args) < 3 {
 		return resp.Encode(errors.New("ERR wrong number of arguments for 'bfreserve' command"), false)
 	}
 
 	key := args[0]
-	//	_, _ := strconv.ParseFloat(args[1], 32)
+	errorRate, _ := strconv.ParseFloat(args[1], 32)
 	capacity, _ := strconv.Atoi(args[2])
 
-	bl := NewBloomFilter(capacity)
+	bl := NewBloomFilter(capacity, errorRate)
 
 	obj := NewObj(bl, -1, uint8(OBJ_TYPE_BLOOM_FILTERS), OBJ_ENCODING_BOOL_ARR)
 
@@ -410,7 +410,7 @@ func evalBFADD(args []string) []byte {
 	key := args[0]
 	pat := args[1]
 
-	obj := store[key]
+	obj := Get(key)
 
 	if obj == nil {
 		return RESP_NIL
@@ -431,7 +431,7 @@ func evalBFEXISTS(args []string) []byte {
 	key := args[0]
 	pat := args[1]
 
-	obj := store[key]
+	obj := Get(key)
 
 	if obj == nil {
 		return RESP_NIL
@@ -489,6 +489,8 @@ func Eval(cmd *RedisCmd) []byte {
 		return evalBFADD(cmd.Args)
 	case "BF.EXISTS":
 		return evalBFEXISTS(cmd.Args)
+	case "BF.RESERVE":
+		return evalBFRESERVE(cmd.Args)
 	default:
 		return evalPING(cmd.Args)
 	}

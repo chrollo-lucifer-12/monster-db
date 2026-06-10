@@ -1,6 +1,8 @@
 package core
 
 import (
+	"math"
+
 	"github.com/spaolacci/murmur3"
 )
 
@@ -23,12 +25,18 @@ type BloomFilter struct {
 	k      int
 }
 
-func NewBloomFilter(size int) *BloomFilter {
+func NewBloomFilter(size int, errorRate float64) *BloomFilter {
+
+	m := int(math.Ceil(-float64(size) * math.Log(errorRate) / (math.Ln2 * math.Ln2)))
+
+	k := int(math.Ceil(
+		(float64(m) / float64(size)) * math.Ln2,
+	))
 
 	return &BloomFilter{
-		filter: make([]uint64, (size+63)/64),
-		size:   size,
-		k:      7,
+		filter: make([]uint64, (m+63)/64),
+		size:   m,
+		k:      k,
 	}
 }
 
@@ -36,7 +44,7 @@ func (b *BloomFilter) Add(key string) {
 	h1, h2 := hashes(key)
 
 	for i := 0; i < b.k; i++ {
-		idx := int(uint64(h1)+uint64(i)*uint64(h2)) & (b.size - 1)
+		idx := int(uint64(h1)+uint64(i)*uint64(h2)) % b.size
 
 		word := idx / 64
 		bit := idx % 64
@@ -49,7 +57,7 @@ func (b *BloomFilter) Exists(key string) bool {
 	h1, h2 := hashes(key)
 
 	for i := 0; i < b.k; i++ {
-		idx := int(uint64(h1)+uint64(i)*uint64(h2)) & (b.size - 1)
+		idx := int(uint64(h1)+uint64(i)*uint64(h2)) % b.size
 
 		word := idx / 64
 		bit := idx % 64
