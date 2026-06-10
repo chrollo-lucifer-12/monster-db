@@ -1,42 +1,63 @@
 package core
 
 import (
-	"hash"
-	"time"
-
 	"github.com/spaolacci/murmur3"
 )
 
-var hasher hash.Hash32
+func hashes(key string) (uint32, uint32) {
+	data := []byte(key)
 
-func murmurhash(key string, size int) int {
-	hasher.Write([]byte(key))
-	res := int(hasher.Sum32()) % size
-	hasher.Reset()
-	return res
+	h1 := murmur3.Sum32(data)
+	h2 := murmur3.Sum32WithSeed(data, 12345)
+
+	if h2 == 0 {
+		h2 = 1
+	}
+
+	return h1, h2
 }
 
 type BloomFilter struct {
-	filter []bool
+	filter []uint64
 	size   int
+	k      int
 }
 
 func NewBloomFilter(size int) *BloomFilter {
 
-	hasher = murmur3.New32WithSeed(uint32(time.Now().Unix()))
-
 	return &BloomFilter{
-		filter: make([]bool, size),
+		filter: make([]uint64, (size+63)/64),
 		size:   size,
+		k:      7,
 	}
 }
 
 func (b *BloomFilter) Add(key string) {
-	idx := murmurhash(key, b.size)
-	b.filter[idx] = true
+	h1, h2 := hashes(key)
+
+	for i := 0; i < b.k; i++ {
+		idx := int(uint64(h1)+uint64(i)*uint64(h2)) & (b.size - 1)
+
+		word := idx / 64
+		bit := idx % 64
+
+		b.filter[word] |= uint64(1) << uint64(bit)
+	}
 }
 
 func (b *BloomFilter) Exists(key string) bool {
-	idx := murmurhash(key, b.size)
-	return b.filter[idx]
+	h1, h2 := hashes(key)
+
+	for i := 0; i < b.k; i++ {
+		idx := int(uint64(h1)+uint64(i)*uint64(h2)) & (b.size - 1)
+
+		word := idx / 64
+		bit := idx % 64
+
+		if b.filter[word]&(uint64(1)<<uint64(bit)) == 0 {
+			return false
+		}
+	}
+
+	return true
 }

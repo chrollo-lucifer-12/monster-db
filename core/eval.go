@@ -384,6 +384,24 @@ func evalLPOP(args []string) []byte {
 	return resp.Encode(res, false)
 }
 
+func evalBFRESERVE(args []string) []byte {
+	if len(args) != 3 {
+		return resp.Encode(errors.New("ERR wrong number of arguments for 'bfreserve' command"), false)
+	}
+
+	key := args[0]
+	//	_, _ := strconv.ParseFloat(args[1], 32)
+	capacity, _ := strconv.Atoi(args[2])
+
+	bl := NewBloomFilter(capacity)
+
+	obj := NewObj(bl, -1, uint8(OBJ_TYPE_BLOOM_FILTERS), OBJ_ENCODING_BOOL_ARR)
+
+	Put(key, obj)
+
+	return RESP_OK
+}
+
 func evalBFADD(args []string) []byte {
 	if len(args) != 2 {
 		return resp.Encode(errors.New("ERR wrong number of arguments for 'bfadd' command"), false)
@@ -394,15 +412,11 @@ func evalBFADD(args []string) []byte {
 
 	obj := store[key]
 
-	var bl *BloomFilter
-
 	if obj == nil {
-		bl = NewBloomFilter(100)
-		obj = NewObj(bl, -1, uint8(OBJ_TYPE_BLOOM_FILTERS), OBJ_ENCODING_BOOL_ARR)
-		Put(key, obj)
-	} else {
-		bl = obj.Value.(*BloomFilter)
+		return RESP_NIL
 	}
+
+	bl := obj.Value.(*BloomFilter)
 
 	bl.Add(pat)
 
