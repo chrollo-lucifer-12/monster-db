@@ -26,6 +26,8 @@ type Client struct {
 	multistate Multistate
 	key        []byte
 	when       time.Time
+
+	subscriptions map[string]struct{}
 }
 
 func freeClient(loop *EventLoop, client *Client) {
@@ -58,8 +60,9 @@ func NewClient(fd int) *Client {
 	}
 
 	return &Client{
-		Fd:       fd,
-		QueryBuf: qBuf[:0],
-		ReplyBuf: rBuf[:0],
+		Fd:            fd,
+		QueryBuf:      qBuf[:0],
+		ReplyBuf:      rBuf[:0],
+		subscriptions: make(map[string]struct{}),
 	}
 }

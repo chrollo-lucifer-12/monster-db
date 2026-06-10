@@ -40,42 +40,53 @@ func respond(cmds core.RedisCmds, client *Client, loop *EventLoop) {
 		switch cmd.Cmd {
 
 		case "SUBSCRIBE":
-			client.flag |= CLIENT_SUB
 
 			for _, key := range cmd.Args {
-				subscribers[key] = append(subscribers[key], client)
-				subscriberCount[key]++
 
-				client.ReplyBuf = append(client.ReplyBuf, resp.Encode([]any{"subscribe", key, subscriberCount[key]}, false)...)
+				if _, exists := client.subscriptions[key]; exists {
+					continue
+				}
+
+				subscribers[key] = append(subscribers[key], client)
+
+				client.subscriptions[key] = struct{}{}
+				client.flag |= CLIENT_SUB
+
+				client.ReplyBuf = append(client.ReplyBuf, resp.Encode([]any{"subscribe", key, len(client.subscriptions)}, false)...)
 			}
 
 			continue
 
 		case "UNSUBSCRIBE":
 
+			var targets []string
 			if len(cmd.Args) > 0 {
-				for _, key := range cmd.Args {
-					subscribers[key] = removeClient(subscribers[key], client)
-					subscriberCount[key]--
-
-					if len(subscribers[key]) == 0 {
-						delete(subscribers, key)
-						delete(subscriberCount, key)
-					}
-				}
+				targets = cmd.Args
 			} else {
-				for key := range subscribers {
-					subscribers[key] = removeClient(subscribers[key], client)
-					subscriberCount[key]--
-
-					if len(subscribers[key]) == 0 {
-						delete(subscribers, key)
-						delete(subscriberCount, key)
-					}
+				for key := range client.subscriptions {
+					targets = append(targets, key)
 				}
 			}
 
-			client.flag &= ^CLIENT_SUB
+			for _, key := range targets {
+				if _, exists := client.subscriptions[key]; !exists {
+					continue
+				}
+
+				delete(client.subscriptions, key)
+				subscribers[key] = removeClient(subscribers[key], client)
+
+				if len(subscribers[key]) == 0 {
+					delete(subscribers, key)
+				}
+
+				client.ReplyBuf = append(client.ReplyBuf, resp.Encode([]any{"unsubscribe", key, len(client.subscriptions)}, false)...)
+			}
+
+			if len(client.subscriptions) == 0 {
+				client.flag &= ^CLIENT_SUB
+			}
+
 			continue
 
 		case "PUBLISH":

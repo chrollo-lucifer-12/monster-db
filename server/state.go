@@ -10,8 +10,7 @@ var (
 	waitingKeys = make(map[string][]*Client)
 	readyKeys   = make(map[string]struct{})
 
-	subscribers     = make(map[string][]*Client)
-	subscriberCount = make(map[string]int)
+	subscribers = make(map[string][]*Client)
 
 	con_clients = 0
 
