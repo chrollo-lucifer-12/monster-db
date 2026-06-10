@@ -78,6 +78,22 @@ func respond(cmds core.RedisCmds, client *Client, loop *EventLoop) {
 			client.flag &= ^CLIENT_SUB
 			continue
 
+		case "PUBLISH":
+			key := cmd.Args[0]
+			message := cmd.Args[1]
+
+			c := 0
+
+			for _, sub_client := range subscribers[key] {
+				sub_client.ReplyBuf = append(sub_client.ReplyBuf, resp.Encode([]string{"message", key, message}, false)...)
+				clientsPendingWrite[sub_client.Fd] = sub_client
+				c++
+			}
+
+			client.ReplyBuf = append(client.ReplyBuf, resp.Encode(c, false)...)
+
+			continue
+
 		case "BLPOP":
 			client.flag |= CLIENT_BLOCKED
 			if core.IsEmpty(cmd.Args[0]) {
