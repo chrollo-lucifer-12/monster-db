@@ -384,6 +384,58 @@ func evalLPOP(args []string) []byte {
 	return resp.Encode(res, false)
 }
 
+func evalBFADD(args []string) []byte {
+	if len(args) != 2 {
+		return resp.Encode(errors.New("ERR wrong number of arguments for 'bfadd' command"), false)
+	}
+
+	key := args[0]
+	pat := args[1]
+
+	obj := store[key]
+
+	var bl *BloomFilter
+
+	if obj == nil {
+		bl = NewBloomFilter(100)
+		obj = NewObj(bl, -1, uint8(OBJ_TYPE_BLOOM_FILTERS), OBJ_ENCODING_BOOL_ARR)
+		Put(key, obj)
+	} else {
+		bl = obj.Value.(*BloomFilter)
+	}
+
+	bl.Add(pat)
+
+	return RESP_ONE
+}
+
+func evalBFEXISTS(args []string) []byte {
+	if len(args) != 2 {
+		return resp.Encode(errors.New("ERR wrong number of arguments for 'bfadd' command"), false)
+	}
+
+	key := args[0]
+	pat := args[1]
+
+	obj := store[key]
+
+	if obj == nil {
+		return RESP_NIL
+	}
+
+	if err := assertType(obj.TypeEncoding, uint8(OBJ_TYPE_BLOOM_FILTERS)); err != nil {
+		return resp.Encode(errors.New("WRONGTYPE Operation against a key holding the wrong kind of value"), false)
+	}
+
+	bl := obj.Value.(*BloomFilter)
+
+	if bl.Exists(pat) {
+		return RESP_ONE
+	}
+
+	return RESP_ZERO
+}
+
 func Eval(cmd *RedisCmd) []byte {
 
 	switch cmd.Cmd {
@@ -419,6 +471,10 @@ func Eval(cmd *RedisCmd) []byte {
 		return evalLRANGE(cmd.Args)
 	case "LPOP":
 		return evalLPOP(cmd.Args)
+	case "BF.ADD":
+		return evalBFADD(cmd.Args)
+	case "BF.EXISTS":
+		return evalBFEXISTS(cmd.Args)
 	default:
 		return evalPING(cmd.Args)
 	}
