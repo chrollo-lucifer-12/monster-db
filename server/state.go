@@ -12,6 +12,8 @@ var (
 
 	subscribers = make(map[string][]*Client)
 
+	watchedKeys = make(map[string][]*Client)
+
 	con_clients = 0
 
 	lastRDB      time.Time     = time.Now()

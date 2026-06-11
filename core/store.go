@@ -48,6 +48,9 @@ func Put(k string, obj *Obj) {
 	if KeyspaceStat[0] == nil {
 		KeyspaceStat[0] = make(map[string]int)
 	}
+
+	SignalModifiedKey(k)
+
 	KeyspaceStat[0]["keys"]++
 }
 
@@ -75,6 +78,8 @@ func Del(k string) bool {
 
 		mem := obj.Size() + int64(len(k))
 		alloc.Free(make([]byte, 0, mem))
+
+		SignalModifiedKey(k)
 
 		return true
 	}

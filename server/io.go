@@ -14,6 +14,10 @@ func ReadQueryFromClient(loop *EventLoop, fd int, clientData interface{}) {
 		return
 	}
 
+	if (client.flag & CLIENT_BLOCKED) != 0 {
+		return
+	}
+
 	for {
 
 		if len(client.QueryBuf) == cap(client.QueryBuf) {
@@ -52,7 +56,7 @@ func ReadQueryFromClient(loop *EventLoop, fd int, clientData interface{}) {
 		}
 
 		if n == 0 {
-			//	log.Printf("Client on FD %d disconnected gracefully", fd)
+			log.Printf("Client on FD %d disconnected gracefully", fd)
 			freeClient(loop, client)
 			return
 		}

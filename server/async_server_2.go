@@ -25,6 +25,16 @@ func MarkReady(key string) {
 	}
 }
 
+func TouchWatchedKeys(key string) {
+	if len(watchedKeys[key]) == 0 {
+		return
+	}
+
+	for _, client := range watchedKeys[key] {
+		client.flag |= CLIENT_CAS
+	}
+}
+
 func WaitForSignal(wg *sync.WaitGroup, sigs chan os.Signal) {
 	defer wg.Done()
 	<-sigs

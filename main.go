@@ -33,6 +33,7 @@ func main() {
 	core.Init()
 	core.Restoreaof()
 	core.MarkReady = server.MarkReady
+	core.SignalModifiedKey = server.TouchWatchedKeys
 	setupFlags()
 	log.Println("starting the server...")
 

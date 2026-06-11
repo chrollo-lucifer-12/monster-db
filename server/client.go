@@ -9,9 +9,12 @@ import (
 	"golang.org/x/sys/unix"
 )
 
-var MULTI_MODE uint8 = 00000001
-var CLIENT_BLOCKED uint8 = 00000010
-var CLIENT_SUB uint8 = 00000100
+const (
+	MULTI_MODE     uint8 = 1 << 0
+	CLIENT_BLOCKED uint8 = 1 << 1
+	CLIENT_SUB     uint8 = 1 << 2
+	CLIENT_CAS     uint8 = 1 << 3
+)
 
 type Multistate struct {
 	cmds    core.RedisCmds

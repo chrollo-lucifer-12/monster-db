@@ -1,12 +1,25 @@
 package server
 
 import (
+	"log"
 	"strconv"
 	"time"
 
 	"github.com/redis-server/core"
 	"github.com/redis-server/resp"
 )
+
+func UnwatchAllKeys(client *Client) {
+	for key, clients := range watchedKeys {
+		watchedKeys[key] = removeClient(clients, client)
+
+		if len(watchedKeys[key]) == 0 {
+			delete(watchedKeys, key)
+		}
+	}
+
+	client.flag &= ^CLIENT_CAS
+}
 
 func removeClient(slice []*Client, target *Client) []*Client {
 	newSlice := make([]*Client, 0, len(slice))
@@ -21,8 +34,10 @@ func removeClient(slice []*Client, target *Client) []*Client {
 }
 
 func respond(cmds core.RedisCmds, client *Client, loop *EventLoop) {
+
 	for _, cmd := range cmds {
-		if client.flag&MULTI_MODE != 0 {
+
+		if client.flag&MULTI_MODE != 0 && cmd.Cmd != "EXEC" && cmd.Cmd != "DISCARD" {
 			client.multistate.cmds = append(client.multistate.cmds, cmd)
 			client.ReplyBuf = append(client.ReplyBuf, []byte("+QUEUED\r\n")...)
 			continue
@@ -106,10 +121,17 @@ func respond(cmds core.RedisCmds, client *Client, loop *EventLoop) {
 			continue
 
 		case "BLPOP":
-			client.flag |= CLIENT_BLOCKED
+
 			if core.IsEmpty(cmd.Args[0]) {
 				waitingKeys[cmd.Args[0]] = append(waitingKeys[cmd.Args[0]], client)
 				timeout, _ := strconv.Atoi(cmd.Args[1])
+				log.Printf(
+					"SETTING BLOCKED: client=%p fd=%d flags_before=%08b",
+					client,
+					client.Fd,
+					client.flag,
+				)
+				client.flag |= CLIENT_BLOCKED
 				if timeout > 0 {
 					client.when = time.Now().Add(time.Duration(timeout) * time.Millisecond)
 				} else {
@@ -124,6 +146,20 @@ func respond(cmds core.RedisCmds, client *Client, loop *EventLoop) {
 
 			return
 
+		case "WATCH":
+			if client.flag&MULTI_MODE != 0 {
+				client.ReplyBuf = append(client.ReplyBuf, resp.Encode("WATCH inside MULTI not allowed", false)...)
+				return
+			}
+
+			for _, key := range cmd.Args {
+				watchedKeys[key] = append(watchedKeys[key], client)
+			}
+
+			client.ReplyBuf = append(client.ReplyBuf, core.RESP_OK...)
+
+			continue
+
 		case "MULTI":
 
 			client.flag |= MULTI_MODE
@@ -134,14 +170,23 @@ func respond(cmds core.RedisCmds, client *Client, loop *EventLoop) {
 
 		case "EXEC":
 
-			if client.flag != 1 {
+			if client.flag&MULTI_MODE == 0 {
 				client.ReplyBuf = append(client.ReplyBuf,
 					[]byte("-ERR EXEC without MULTI\r\n")...)
 				break
 			}
 
+			if client.flag&CLIENT_CAS != 0 {
+				UnwatchAllKeys(client)
+				client.multistate.cmds = nil
+				client.flag &= ^MULTI_MODE
+
+				client.ReplyBuf = append(client.ReplyBuf, core.RESP_NIL...)
+				break
+			}
+
 			if len(client.multistate.cmds) == 0 {
-				client.flag = 0
+				client.flag &= ^MULTI_MODE
 				client.ReplyBuf = append(client.ReplyBuf, []byte("*0\r\n")...)
 				break
 			}
@@ -153,21 +198,26 @@ func respond(cmds core.RedisCmds, client *Client, loop *EventLoop) {
 			}
 
 			client.multistate.cmds = nil
-			client.flag = 0
+			client.flag &= ^MULTI_MODE
+
+			UnwatchAllKeys(client)
 
 			client.ReplyBuf = append(client.ReplyBuf, resp.EncodeExecArray(results)...)
 
 			continue
 
 		case "DISCARD":
-			if client.flag != 1 {
+			if client.flag&MULTI_MODE == 0 {
 				client.ReplyBuf = append(client.ReplyBuf,
 					[]byte("-ERR DISCARD without MULTI\r\n")...)
 				break
 			}
 
 			client.multistate.cmds = nil
-			client.flag = 0
+			client.flag &= ^MULTI_MODE
+
+			UnwatchAllKeys(client)
+
 			client.ReplyBuf = append(client.ReplyBuf, []byte("+OK\r\n")...)
 
 			continue
