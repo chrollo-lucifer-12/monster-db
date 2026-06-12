@@ -59,7 +59,6 @@ func beforeSleep(loop *EventLoop) {
 		client.ReplyBuf = client.ReplyBuf[n:]
 
 		if len(client.ReplyBuf) > 0 {
-
 			loop.AddFileEvent(fd, unix.EPOLLOUT, SendReplyToClient, client)
 		} else {
 			loop.DeleteFileEvent(fd, unix.EPOLLOUT)
