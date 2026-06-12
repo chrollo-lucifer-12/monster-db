@@ -54,6 +54,12 @@ func respond(cmds core.RedisCmds, client *Client, loop *EventLoop) {
 
 		switch cmd.Cmd {
 
+		case "REPLICAOF":
+			MasterHost = cmd.Args[0]
+			MasterPort, _ = strconv.Atoi(cmd.Args[1])
+			ReplicaState |= REPL_STATE_CONNECT
+			client.ReplyBuf = append(client.ReplyBuf, core.RESP_OK...)
+
 		case "SUBSCRIBE":
 
 			for _, key := range cmd.Args {
