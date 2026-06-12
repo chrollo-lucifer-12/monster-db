@@ -4,6 +4,7 @@ import (
 	"log"
 	"net"
 	"strconv"
+	"strings"
 
 	"golang.org/x/sys/unix"
 )
@@ -102,5 +103,29 @@ func HandleMasterHandshake(loop *EventLoop, fd int, clientData any) {
 }
 
 func HandleMasterReadableHandshake(loop *EventLoop, fd int, clientData any) {
+	client := clientData.(*Client)
 
+	var buf [1024]byte
+	n, err := unix.Read(fd, buf[:])
+
+	if err != nil || n <= 0 {
+		cleanupClient(client, loop)
+		ReplicaState = REPL_STATE_CONNECT
+		return
+	}
+
+	client.QueryBuf = append(client.QueryBuf, buf[:n]...)
+
+	switch ReplicaState {
+	case REPL_STATE_RECEIVING_PING:
+		if strings.Contains(string(client.QueryBuf), "+PONG") {
+			client.QueryBuf = client.QueryBuf[:0]
+
+			client.ReplyBuf = append(client.ReplyBuf, []byte("REPLCONF listening-port 6380\r\n")...)
+			client.ReplyBuf = append(client.ReplyBuf, []byte("REPLCONF capa psync2\r\n")...)
+
+			ReplicaState = REPL_STATE_RECEIVING_REPLCONF
+			clientsPendingWrite[fd] = client
+		}
+	}
 }

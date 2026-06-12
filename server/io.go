@@ -14,10 +14,6 @@ func ReadQueryFromClient(loop *EventLoop, fd int, clientData interface{}) {
 		return
 	}
 
-	if (client.flag & CLIENT_BLOCKED) != 0 {
-		return
-	}
-
 	for {
 
 		if len(client.QueryBuf) == cap(client.QueryBuf) {
