@@ -175,3 +175,14 @@ func ReadLiveReplicationStream(loop *EventLoop, fd int, clientData any) {
 	fmt.Printf("[Replica Log Ingest] Parsed %d bytes from Master stream\n", n)
 	client.QueryBuf = client.QueryBuf[:0]
 }
+
+func ReplicationHeartbeatCron(loop *EventLoop, id int64, data interface{}) int {
+	if ReplicaState == REPL_STATE_ONLINE && MasterClient != nil {
+
+		ackCmd := fmt.Sprintf("REPLCONF ACK %d\r\n", CachedOffset)
+		MasterClient.ReplyBuf = append(MasterClient.ReplyBuf, []byte(ackCmd)...)
+
+		clientsPendingWrite[MasterClient.Fd] = MasterClient
+	}
+	return 1000
+}
