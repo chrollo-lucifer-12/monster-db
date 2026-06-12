@@ -34,6 +34,10 @@ func CreateEventLoop(maxClients int) (*EventLoop, error) {
 
 func beforeSleep(loop *EventLoop) {
 
+	if ReplicaState == REPL_STATE_CONNECTING {
+		InitMasterConnection(loop)
+	}
+
 	processKeys(loop)
 
 	for fd, client := range clientsPendingWrite {
