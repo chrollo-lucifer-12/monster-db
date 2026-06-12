@@ -54,6 +54,9 @@ func respond(cmds core.RedisCmds, client *Client, loop *EventLoop) {
 
 		switch cmd.Cmd {
 
+		case "PSYNC":
+			HandleMasterPsyncCommand(loop, client, cmd.Args)
+
 		case "REPLICAOF":
 			HandleReplicaOfCommand(client, cmd.Args)
 
