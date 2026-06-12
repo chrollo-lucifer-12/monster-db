@@ -33,6 +33,7 @@ func HandleInformReplicas(cmd []byte) {
 
 	for fd, replicaClient := range ConnectedReplicas {
 		replicaClient.ReplyBuf = append(replicaClient.ReplyBuf, cmd...)
+
 		clientsPendingWrite[fd] = replicaClient
 	}
 }
@@ -75,7 +76,7 @@ func HandleMasterPsyncCommand(loop *EventLoop, c *Client, args []string) {
 
 	diff := MasterGlobalOffset - int64(len(ReplBacklog))
 
-	if reqReplID == MasterReplID && reqOffset >= diff && reqOffset <= MasterGlobalOffset {
+	if reqReplID == MasterRunID && reqOffset >= diff && reqOffset <= MasterGlobalOffset {
 		log.Printf("Replica on FD %d qualified for Partial Resync (+CONTINUE)\n", c.Fd)
 		c.ReplyBuf = append(c.ReplyBuf, []byte("+CONTINUE\r\n")...)
 
@@ -89,7 +90,7 @@ func HandleMasterPsyncCommand(loop *EventLoop, c *Client, args []string) {
 		fullResyncHeader := fmt.Sprintf("+FULLRESYNC %s %d\r\n", MasterRunID, MasterGlobalOffset)
 		c.ReplyBuf = append(c.ReplyBuf, []byte(fullResyncHeader)...)
 
-		mockSnapshot := []byte("$18\r\n*1\r\n$4\r\nPING\r\n")
+		mockSnapshot := []byte("*3\r\n$3\r\nSET\r\n$1\r\nk\r\n$1\r\nv\r\n")
 		c.ReplyBuf = append(c.ReplyBuf, mockSnapshot...)
 	}
 

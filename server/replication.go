@@ -7,6 +7,8 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/redis-server/core"
+	"github.com/redis-server/resp"
 	"golang.org/x/sys/unix"
 )
 
@@ -33,13 +35,13 @@ var (
 
 func HandleReplicaOfCommand(c *Client, args []string) {
 	if len(args) < 2 {
-		c.ReplyBuf = append(c.ReplyBuf, []byte("-ERR syntax error\r\n")...)
+		c.ReplyBuf = append(c.ReplyBuf, resp.Encode("ERR syntax error", false)...)
 		return
 	}
 
 	port, err := strconv.Atoi(args[1])
 	if err != nil {
-		c.ReplyBuf = append(c.ReplyBuf, []byte("-ERR Invalid master port\r\n")...)
+		c.ReplyBuf = append(c.ReplyBuf, resp.Encode("ERR Invalid master port", false)...)
 		return
 	}
 
@@ -93,7 +95,7 @@ func HandleMasterHandshake(loop *EventLoop, fd int, clientData any) {
 	client := clientData.(*Client)
 
 	if ReplicaState == REPL_STATE_CONNECTING {
-		client.ReplyBuf = append(client.ReplyBuf, []byte("PING\r\n")...)
+		client.ReplyBuf = append(client.ReplyBuf, resp.Encode([]string{"PING"}, false)...)
 
 		loop.DeleteFileEvent(fd, unix.EPOLLOUT)
 		loop.AddFileEvent(fd, unix.EPOLLIN, HandleMasterReadableHandshake, client)
@@ -122,8 +124,8 @@ func HandleMasterReadableHandshake(loop *EventLoop, fd int, clientData any) {
 		if strings.Contains(string(client.QueryBuf), "+PONG") {
 			client.QueryBuf = client.QueryBuf[:0]
 
-			client.ReplyBuf = append(client.ReplyBuf, []byte("REPLCONF listening-port 6380\r\n")...)
-			client.ReplyBuf = append(client.ReplyBuf, []byte("REPLCONF capa psync2\r\n")...)
+			client.ReplyBuf = append(client.ReplyBuf, resp.Encode([]string{"REPLCONF", "listening-port", "6380"}, false)...)
+			client.ReplyBuf = append(client.ReplyBuf, resp.Encode([]string{"REPLCONF", "capa", "psync2"}, false)...)
 
 			ReplicaState = REPL_STATE_RECEIVING_REPLCONF
 			clientsPendingWrite[fd] = client
@@ -133,8 +135,14 @@ func HandleMasterReadableHandshake(loop *EventLoop, fd int, clientData any) {
 		if strings.Contains(string(client.QueryBuf), "+OK") {
 			client.QueryBuf = client.QueryBuf[:0]
 
-			psynCmd := fmt.Sprintf("PSYNC %s %d\r\n", MasterReplID, CachedOffset)
-			client.ReplyBuf = append(client.ReplyBuf, []byte(psynCmd)...)
+			client.ReplyBuf = append(
+				client.ReplyBuf,
+				resp.Encode([]string{
+					"PSYNC",
+					MasterReplID,
+					strconv.FormatInt(CachedOffset, 10),
+				}, false)...,
+			)
 
 			ReplicaState = REPL_STATE_RECEIVING_PSYNC
 			clientsPendingWrite[fd] = client
@@ -143,14 +151,28 @@ func HandleMasterReadableHandshake(loop *EventLoop, fd int, clientData any) {
 	case REPL_STATE_RECEIVING_PSYNC:
 		response := string(client.QueryBuf)
 		if strings.HasPrefix(response, "+FULLRESYNC") {
-			parts := strings.Split(strings.TrimSpace(response), " ")
-			MasterReplID = parts[1]
-			CachedOffset, _ = strconv.ParseInt(parts[2], 10, 64)
 
-			log.Printf("Handshake validated! Synchronizing Master ID: %s starting at Offset: %d\n", MasterReplID, CachedOffset)
-			client.QueryBuf = client.QueryBuf[:0]
+			lineEnd := strings.Index(response, "\r\n")
+			header := response[:lineEnd]
+			parts := strings.Split(header, " ")
+
+			if len(parts) != 3 {
+				return
+			}
+
+			MasterReplID = parts[1]
+
+			offset, err := strconv.ParseInt(parts[2], 10, 64)
+			if err != nil {
+				return
+			}
+
+			CachedOffset = offset
+
+			client.QueryBuf = client.QueryBuf[lineEnd+2:]
 
 			ReplicaState = REPL_STATE_ONLINE
+
 			loop.AddFileEvent(fd, unix.EPOLLIN, ReadLiveReplicationStream, client)
 		}
 
@@ -172,15 +194,34 @@ func ReadLiveReplicationStream(loop *EventLoop, fd int, clientData any) {
 	client.QueryBuf = append(client.QueryBuf, buf[:n]...)
 	CachedOffset += int64(n)
 
+	cmds, remaining, err := readCommands(client.QueryBuf)
+	if err != nil {
+		return
+	}
+
+	if remaining > 0 {
+		copy(client.QueryBuf, client.QueryBuf[remaining:])
+		client.QueryBuf = client.QueryBuf[:len(client.QueryBuf)-remaining]
+	}
+
+	for _, cmd := range cmds {
+		log.Println(cmd.Cmd)
+		core.Eval(cmd)
+	}
+
 	fmt.Printf("[Replica Log Ingest] Parsed %d bytes from Master stream\n", n)
-	client.QueryBuf = client.QueryBuf[:0]
+	client.QueryBuf = client.QueryBuf[:remaining]
 }
 
 func ReplicationHeartbeatCron(loop *EventLoop, id int64, data interface{}) int {
+
 	if ReplicaState == REPL_STATE_ONLINE && MasterClient != nil {
 
-		ackCmd := fmt.Sprintf("REPLCONF ACK %d\r\n", CachedOffset)
-		MasterClient.ReplyBuf = append(MasterClient.ReplyBuf, []byte(ackCmd)...)
+		MasterClient.ReplyBuf = append(MasterClient.ReplyBuf, resp.Encode([]string{
+			"REPLCONF",
+			"ACK",
+			strconv.FormatInt(CachedOffset, 10),
+		}, false)...)
 
 		clientsPendingWrite[MasterClient.Fd] = MasterClient
 	}

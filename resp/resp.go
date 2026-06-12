@@ -173,7 +173,6 @@ func Encode(value any, isSimple bool) []byte {
 	case int8:
 		return []byte(fmt.Sprintf(":%d\r\n", v))
 
-	// ✅ FIXED: supports ANY slice type
 	case []any:
 		var buf bytes.Buffer
 
@@ -200,7 +199,6 @@ func Encode(value any, isSimple bool) []byte {
 		return []byte(fmt.Sprintf("-%s\r\n", v))
 	}
 
-	// fallback
 	return []byte(fmt.Sprintf("$%d\r\n%v\r\n",
 		len(fmt.Sprint(value)),
 		value,

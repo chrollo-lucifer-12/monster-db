@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/redis-server/core"
+	"github.com/redis-server/resp"
 )
 
 func UnwatchAllKeys(client *Client) {
@@ -132,6 +133,11 @@ func respond(cmds core.RedisCmds, client *Client, loop *EventLoop) {
 			continue
 
 		default:
+			if cmd.Cmd == "SET" || cmd.Cmd == "DEL" || cmd.Cmd == "RPUSH" || cmd.Cmd == "LPUSH" {
+				args := append([]string{cmd.Cmd}, cmd.Args...)
+				HandleInformReplicas(resp.Encode(args, false))
+			}
+
 			client.ReplyBuf = append(client.ReplyBuf, core.Eval(cmd)...)
 		}
 	}

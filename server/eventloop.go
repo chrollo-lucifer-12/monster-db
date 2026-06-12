@@ -34,7 +34,7 @@ func CreateEventLoop(maxClients int) (*EventLoop, error) {
 
 func beforeSleep(loop *EventLoop) {
 
-	if ReplicaState == REPL_STATE_CONNECTING {
+	if ReplicaState == REPL_STATE_CONNECT {
 		InitMasterConnection(loop)
 	}
 
