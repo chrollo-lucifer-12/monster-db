@@ -205,7 +205,6 @@ func ReadLiveReplicationStream(loop *EventLoop, fd int, clientData any) {
 	}
 
 	for _, cmd := range cmds {
-		log.Println(cmd.Cmd)
 		core.Eval(cmd)
 	}
 

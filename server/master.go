@@ -6,6 +6,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/redis-server/core"
 	"golang.org/x/sys/unix"
 )
 
@@ -90,8 +91,7 @@ func HandleMasterPsyncCommand(loop *EventLoop, c *Client, args []string) {
 		fullResyncHeader := fmt.Sprintf("+FULLRESYNC %s %d\r\n", MasterRunID, MasterGlobalOffset)
 		c.ReplyBuf = append(c.ReplyBuf, []byte(fullResyncHeader)...)
 
-		mockSnapshot := []byte("*3\r\n$3\r\nSET\r\n$1\r\nk\r\n$1\r\nv\r\n")
-		c.ReplyBuf = append(c.ReplyBuf, mockSnapshot...)
+		c.ReplyBuf = append(c.ReplyBuf, core.EncodeStore()...)
 	}
 
 	ConnectedReplicas[c.Fd] = c

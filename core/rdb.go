@@ -8,7 +8,25 @@ import (
 	"syscall"
 
 	"github.com/redis-server/config"
+	"github.com/redis-server/resp"
 )
+
+func EncodeStore() []byte {
+
+	var buf []byte
+
+	for k, obj := range store {
+		cmd := resp.Encode([]string{
+			"SET",
+			k,
+			string(obj.Value.([]byte)),
+		}, false)
+
+		buf = append(buf, cmd...)
+	}
+
+	return buf
+}
 
 func LoadRDB() {
 	fp, err := os.OpenFile(config.RDBFILE, os.O_RDONLY, 0644)
@@ -51,7 +69,7 @@ func LoadRDB() {
 }
 
 func SaveRDB() {
-	fp, err := os.OpenFile(config.RDBFILE, os.O_CREATE|os.O_WRONLY, os.ModeAppend)
+	fp, err := os.OpenFile(config.RDBFILE, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
 	if err != nil {
 		fmt.Println("error", err)
 		return

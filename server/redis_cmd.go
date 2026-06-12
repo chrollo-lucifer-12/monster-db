@@ -133,7 +133,7 @@ func respond(cmds core.RedisCmds, client *Client, loop *EventLoop) {
 			continue
 
 		default:
-			if cmd.Cmd == "SET" || cmd.Cmd == "DEL" || cmd.Cmd == "RPUSH" || cmd.Cmd == "LPUSH" {
+			if cmd.Cmd == "SET" || cmd.Cmd == "DEL" || cmd.Cmd == "RPUSH" || cmd.Cmd == "LPUSH" || cmd.Cmd == "INCR" {
 				args := append([]string{cmd.Cmd}, cmd.Args...)
 				HandleInformReplicas(resp.Encode(args, false))
 			}
