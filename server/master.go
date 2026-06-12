@@ -19,6 +19,51 @@ var (
 	ConnectedReplicas = make(map[int]*Client)
 )
 
+func HandleInformReplicas(cmd []byte) {
+	if len(cmd) == 0 {
+		return
+	}
+
+	MasterGlobalOffset += int64(len(cmd))
+
+	ReplBacklog = append(ReplBacklog, cmd...)
+	if int64(len(ReplBacklog)) > BacklogMaxCap {
+		ReplBacklog = ReplBacklog[int64(len(ReplBacklog))-BacklogMaxCap:]
+	}
+
+	for fd, replicaClient := range ConnectedReplicas {
+		replicaClient.ReplyBuf = append(replicaClient.ReplyBuf, cmd...)
+		clientsPendingWrite[fd] = replicaClient
+	}
+}
+
+func HandleMasterReplConfCommand(c *Client, args []string) {
+	if len(args) < 2 {
+		c.ReplyBuf = append(c.ReplyBuf, []byte("-ERR syntax error\r\n")...)
+		return
+	}
+
+	subCommand := strings.ToLower(args[0])
+
+	switch subCommand {
+	case "listening-port", "capa":
+
+		c.ReplyBuf = append(c.ReplyBuf, []byte("+OK\r\n")...)
+
+	case "ack":
+
+		replicaOffset, err := strconv.ParseInt(args[1], 10, 64)
+		if err == nil {
+
+			lag := MasterGlobalOffset - replicaOffset
+			if lag > 0 {
+				log.Printf("Replica on FD %d tracking with a lag of %d bytes\n", c.Fd, lag)
+			}
+		}
+
+	}
+}
+
 func HandleMasterPsyncCommand(loop *EventLoop, c *Client, args []string) {
 	if len(args) < 2 {
 		c.ReplyBuf = append(c.ReplyBuf, []byte("-ERR syntax error\r\n")...)

@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/redis-server/core"
-	"github.com/redis-server/resp"
 )
 
 func UnwatchAllKeys(client *Client) {
@@ -54,6 +53,9 @@ func respond(cmds core.RedisCmds, client *Client, loop *EventLoop) {
 
 		switch cmd.Cmd {
 
+		case "REPLCONF":
+			HandleMasterReplConfCommand(client, cmd.Args)
+
 		case "PSYNC":
 			HandleMasterPsyncCommand(loop, client, cmd.Args)
 
@@ -62,68 +64,17 @@ func respond(cmds core.RedisCmds, client *Client, loop *EventLoop) {
 
 		case "SUBSCRIBE":
 
-			for _, key := range cmd.Args {
-
-				if _, exists := client.subscriptions[key]; exists {
-					continue
-				}
-
-				subscribers[key] = append(subscribers[key], client)
-
-				client.subscriptions[key] = struct{}{}
-				client.flag |= CLIENT_SUB
-
-				client.ReplyBuf = append(client.ReplyBuf, resp.Encode([]any{"subscribe", key, len(client.subscriptions)}, false)...)
-			}
-
+			HandleSubscribe(client, cmd.Args)
 			continue
 
 		case "UNSUBSCRIBE":
 
-			var targets []string
-			if len(cmd.Args) > 0 {
-				targets = cmd.Args
-			} else {
-				for key := range client.subscriptions {
-					targets = append(targets, key)
-				}
-			}
-
-			for _, key := range targets {
-				if _, exists := client.subscriptions[key]; !exists {
-					continue
-				}
-
-				delete(client.subscriptions, key)
-				subscribers[key] = removeClient(subscribers[key], client)
-
-				if len(subscribers[key]) == 0 {
-					delete(subscribers, key)
-				}
-
-				client.ReplyBuf = append(client.ReplyBuf, resp.Encode([]any{"unsubscribe", key, len(client.subscriptions)}, false)...)
-			}
-
-			if len(client.subscriptions) == 0 {
-				client.flag &= ^CLIENT_SUB
-			}
-
+			HandleUnsubscribe(client, cmd.Args)
 			continue
 
 		case "PUBLISH":
-			key := cmd.Args[0]
-			message := cmd.Args[1]
 
-			c := 0
-
-			for _, sub_client := range subscribers[key] {
-				sub_client.ReplyBuf = append(sub_client.ReplyBuf, resp.Encode([]string{"message", key, message}, false)...)
-				clientsPendingWrite[sub_client.Fd] = sub_client
-				c++
-			}
-
-			client.ReplyBuf = append(client.ReplyBuf, resp.Encode(c, false)...)
-
+			HandlePublish(client, cmd.Args)
 			continue
 
 		case "BLPOP":
@@ -153,79 +104,31 @@ func respond(cmds core.RedisCmds, client *Client, loop *EventLoop) {
 			return
 
 		case "WATCH":
-			if client.flag&MULTI_MODE != 0 {
-				client.ReplyBuf = append(client.ReplyBuf, resp.Encode("WATCH inside MULTI not allowed", false)...)
-				return
+
+			err := HandleWatch(client, cmd.Args)
+			if err != nil {
+				break
 			}
-
-			for _, key := range cmd.Args {
-				watchedKeys[key] = append(watchedKeys[key], client)
-			}
-
-			client.ReplyBuf = append(client.ReplyBuf, core.RESP_OK...)
-
 			continue
 
 		case "MULTI":
 
-			client.flag |= MULTI_MODE
-			client.multistate.cmds = nil
-			client.ReplyBuf = append(client.ReplyBuf, []byte("+OK\r\n")...)
-
+			HandleMulti(client, cmd.Args)
 			continue
 
 		case "EXEC":
-
-			if client.flag&MULTI_MODE == 0 {
-				client.ReplyBuf = append(client.ReplyBuf,
-					[]byte("-ERR EXEC without MULTI\r\n")...)
+			err := HandleExec(client, cmd.Args)
+			if err != nil {
 				break
 			}
-
-			if client.flag&CLIENT_CAS != 0 {
-				UnwatchAllKeys(client)
-				client.multistate.cmds = nil
-				client.flag &= ^MULTI_MODE
-
-				client.ReplyBuf = append(client.ReplyBuf, core.RESP_NIL...)
-				break
-			}
-
-			if len(client.multistate.cmds) == 0 {
-				client.flag &= ^MULTI_MODE
-				client.ReplyBuf = append(client.ReplyBuf, []byte("*0\r\n")...)
-				break
-			}
-
-			results := make([][]byte, 0, len(client.multistate.cmds))
-
-			for _, qcmd := range client.multistate.cmds {
-				results = append(results, core.Eval(qcmd))
-			}
-
-			client.multistate.cmds = nil
-			client.flag &= ^MULTI_MODE
-
-			UnwatchAllKeys(client)
-
-			client.ReplyBuf = append(client.ReplyBuf, resp.EncodeExecArray(results)...)
-
 			continue
 
 		case "DISCARD":
-			if client.flag&MULTI_MODE == 0 {
-				client.ReplyBuf = append(client.ReplyBuf,
-					[]byte("-ERR DISCARD without MULTI\r\n")...)
+
+			err := HandleDiscard(client, cmd.Args)
+			if err != nil {
 				break
 			}
-
-			client.multistate.cmds = nil
-			client.flag &= ^MULTI_MODE
-
-			UnwatchAllKeys(client)
-
-			client.ReplyBuf = append(client.ReplyBuf, []byte("+OK\r\n")...)
-
 			continue
 
 		default:
