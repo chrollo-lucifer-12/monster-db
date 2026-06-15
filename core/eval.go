@@ -450,6 +450,105 @@ func evalBFEXISTS(args []string) []byte {
 	return RESP_ZERO
 }
 
+func evalSADD(args []string) []byte {
+	if len(args) < 2 {
+		return resp.Encode(errors.New("ERR wrong number of arguments for 'sadd' command"), false)
+	}
+
+	key := args[0]
+	obj := Get(key)
+
+	var is *Intset
+
+	if obj == nil {
+		is = NewIntset()
+		Put(key, NewObj(is, -1, uint8(OBJ_TYPE_SET), OBJ_ENCODING_INSET))
+	} else {
+		is = obj.Value.(*Intset)
+	}
+
+	c := 0
+
+	for _, v := range args[1:] {
+		n, err := strconv.ParseInt(v, 10, 16)
+		if err == nil {
+			inserted := is.set(int16(n))
+			if inserted {
+				c++
+			}
+		}
+	}
+
+	return resp.Encode(c, false)
+}
+
+func evalSCARD(args []string) []byte {
+	if len(args) != 1 {
+		return resp.Encode(errors.New("ERR wrong number of arguments for 'scard' command"), false)
+	}
+
+	key := args[0]
+
+	obj := Get(key)
+
+	if err := assertType(obj.TypeEncoding, uint8(OBJ_TYPE_SET)); err != nil {
+		return RESP_NIL
+	}
+
+	is := obj.Value.(*Intset)
+
+	return resp.Encode(is.length, false)
+}
+
+func evalSISMEMBER(args []string) []byte {
+	if len(args) != 2 {
+		return resp.Encode(errors.New("ERR wrong number of arguments for 'sismember' command"), false)
+	}
+
+	key := args[0]
+
+	obj := Get(key)
+
+	if err := assertType(obj.TypeEncoding, uint8(OBJ_TYPE_SET)); err != nil {
+		return RESP_NIL
+	}
+
+	value, _ := strconv.ParseInt(args[1], 10, 16)
+
+	is := obj.Value.(*Intset)
+
+	idx := is.search(int16(value))
+
+	if idx != -1 && is.get(idx) == int16(value) {
+		return RESP_ONE
+	}
+
+	return RESP_ZERO
+}
+
+func evalSMEMBERS(args []string) []byte {
+	if len(args) != 1 {
+		return resp.Encode(errors.New("ERR wrong number of arguments for 'smembers' command"), false)
+	}
+
+	key := args[0]
+
+	obj := Get(key)
+
+	if err := assertType(obj.TypeEncoding, uint8(OBJ_TYPE_SET)); err != nil {
+		return RESP_NIL
+	}
+
+	elements := []int16{}
+	is := obj.Value.(*Intset)
+
+	for i := 0; i < int(is.length); i++ {
+		elements = append(elements, is.get(i))
+	}
+
+	return resp.Encode(elements, false)
+}
+
 func Eval(cmd *RedisCmd) []byte {
 
 	switch cmd.Cmd {
@@ -491,6 +590,14 @@ func Eval(cmd *RedisCmd) []byte {
 		return evalBFEXISTS(cmd.Args)
 	case "BF.RESERVE":
 		return evalBFRESERVE(cmd.Args)
+	case "SADD":
+		return evalSADD(cmd.Args)
+	case "SCARD":
+		return evalSCARD(cmd.Args)
+	case "SISMEMBER":
+		return evalSISMEMBER(cmd.Args)
+	case "SMEMBERS":
+		return evalSMEMBERS(cmd.Args)
 	default:
 		return evalPING(cmd.Args)
 	}
