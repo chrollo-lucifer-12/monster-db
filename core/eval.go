@@ -539,7 +539,7 @@ func evalSMEMBERS(args []string) []byte {
 		return RESP_NIL
 	}
 
-	elements := []int16{}
+	elements := []any{}
 	is := obj.Value.(*Intset)
 
 	for i := 0; i < int(is.length); i++ {
@@ -547,6 +547,26 @@ func evalSMEMBERS(args []string) []byte {
 	}
 
 	return resp.Encode(elements, false)
+}
+
+func evalSREM(args []string) []byte {
+	if len(args) != 2 {
+		return resp.Encode(errors.New("ERR wrong number of arguments for 'srem' command"), false)
+	}
+
+	key := args[0]
+
+	obj := Get(key)
+
+	if err := assertType(obj.TypeEncoding, uint8(OBJ_TYPE_SET)); err != nil {
+		return RESP_NIL
+	}
+
+	value, _ := strconv.ParseInt(args[1], 10, 16)
+
+	is := obj.Value.(*Intset)
+
+	return resp.Encode(is.del(int16(value)), false)
 }
 
 func Eval(cmd *RedisCmd) []byte {
@@ -598,6 +618,8 @@ func Eval(cmd *RedisCmd) []byte {
 		return evalSISMEMBER(cmd.Args)
 	case "SMEMBERS":
 		return evalSMEMBERS(cmd.Args)
+	case "SREM":
+		return evalSREM(cmd.Args)
 	default:
 		return evalPING(cmd.Args)
 	}

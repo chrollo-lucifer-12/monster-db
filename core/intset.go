@@ -63,3 +63,20 @@ func (is *Intset) get(idx int) int16 {
 	offset := idx * 2
 	return int16(binary.LittleEndian.Uint16(is.data[offset:]))
 }
+
+func (is *Intset) del(val int16) int {
+	idx := is.search(val)
+
+	if idx == -1 || (idx != -1 && is.get(idx) != val) {
+		return 0
+	}
+
+	pos := idx * 2
+
+	copy(is.data[pos:], is.data[pos+2:])
+
+	is.data = is.data[:len(is.data)-2]
+	is.length--
+
+	return 1
+}
