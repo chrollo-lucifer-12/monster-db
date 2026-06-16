@@ -569,6 +569,31 @@ func evalSREM(args []string) []byte {
 	return resp.Encode(is.del(int16(value)), false)
 }
 
+func evalZADD(args []string) []byte {
+	if len(args) != 3 {
+		return resp.Encode(errors.New("ERR wrong number of arguments for 'zadd' command"), false)
+	}
+
+	key := args[0]
+	score, _ := strconv.ParseInt(args[1], 10, 64)
+	member := args[2]
+
+	obj := Get(key)
+
+	var z *Zset
+
+	if obj == nil {
+		z = NewZset()
+		Put(key, NewObj(z, -1, OBJ_TYPE_ZSET, OBJ_ENCODING_SKIPLIST))
+	} else {
+		z = obj.Value.(*Zset)
+	}
+
+	z.Add(member, int(score))
+
+	return RESP_ONE
+}
+
 func Eval(cmd *RedisCmd) []byte {
 
 	switch cmd.Cmd {
@@ -620,6 +645,8 @@ func Eval(cmd *RedisCmd) []byte {
 		return evalSMEMBERS(cmd.Args)
 	case "SREM":
 		return evalSREM(cmd.Args)
+	case "ZADD":
+		return evalZADD(cmd.Args)
 	default:
 		return evalPING(cmd.Args)
 	}

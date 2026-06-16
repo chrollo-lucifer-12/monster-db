@@ -11,13 +11,15 @@ const (
 )
 
 type SkiplistNode struct {
-	key     int
+	member  string
+	score   int
 	forward []*SkiplistNode
 }
 
-func NewSkipListNode(key, level int) *SkiplistNode {
+func NewSkipListNode(member string, score int, level int) *SkiplistNode {
 	return &SkiplistNode{
-		key:     key,
+		member:  member,
+		score:   score,
 		forward: make([]*SkiplistNode, level+1),
 	}
 }
@@ -30,7 +32,7 @@ type Skiplist struct {
 func NewSkiplist() *Skiplist {
 	return &Skiplist{
 		level: 0,
-		head:  NewSkipListNode(-1, MAXLVL),
+		head:  NewSkipListNode("root", -1, MAXLVL),
 	}
 }
 
@@ -51,7 +53,39 @@ func randomLevel() int {
 	return lvl
 }
 
-func (sl *Skiplist) Insert(key int) {
+func (sl *Skiplist) insert(member string, score int) *SkiplistNode {
 	current := sl.head
 
+	updates := make([]*SkiplistNode, MAXLVL+1)
+
+	for i := sl.level; i >= 0; i-- {
+		for current.forward[i] != nil && current.forward[i].score < score {
+			current = current.forward[i]
+		}
+		updates[i] = current
+	}
+
+	current = current.forward[0]
+
+	// if current != nil && current.key == key {
+	// 	return
+	// }
+
+	lvl := randomLevel()
+
+	if lvl > sl.level {
+		for i := sl.level + 1; i <= lvl; i++ {
+			updates[i] = sl.head
+		}
+		sl.level = lvl
+	}
+
+	newNode := NewSkipListNode(member, score, lvl)
+
+	for i := 0; i <= lvl; i++ {
+		newNode.forward[i] = updates[i].forward[i]
+		updates[i].forward[i] = newNode
+	}
+
+	return newNode
 }
