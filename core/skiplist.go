@@ -67,10 +67,6 @@ func (sl *Skiplist) insert(member string, score int) *SkiplistNode {
 
 	current = current.forward[0]
 
-	// if current != nil && current.key == key {
-	// 	return
-	// }
-
 	lvl := randomLevel()
 
 	if lvl > sl.level {
@@ -88,4 +84,53 @@ func (sl *Skiplist) insert(member string, score int) *SkiplistNode {
 	}
 
 	return newNode
+}
+
+func (sl *Skiplist) delete(member string, score int) {
+	current := sl.head
+
+	updates := make([]*SkiplistNode, MAXLVL+1)
+
+	for i := sl.level; i >= 0; i-- {
+		for current.forward[i] != nil && (current.forward[i].score < score || (current.forward[i].score == score && current.forward[i].member < member)) {
+			current = current.forward[i]
+		}
+		updates[i] = current
+	}
+
+	current = current.forward[0]
+
+	if current != nil && current.member == member && current.score == score {
+		for i := 0; i <= sl.level; i++ {
+			if updates[i].forward[i] != current {
+				continue
+			}
+
+			updates[i].forward[i] = current.forward[i]
+		}
+
+		for sl.level > 0 && sl.head.forward[sl.level] == nil {
+			sl.level--
+		}
+	}
+}
+
+func (sl *Skiplist) search(member string, score int) *SkiplistNode {
+	current := sl.head
+
+	for i := sl.level; i >= 0; i-- {
+		for current.forward[i] != nil && (current.forward[i].score < score || (current.forward[i].score == score && current.forward[i].member < member)) {
+			current = current.forward[i]
+		}
+	}
+
+	current = current.forward[0]
+
+	if current != nil &&
+		current.score == score &&
+		current.member == member {
+		return current
+	}
+
+	return nil
 }
