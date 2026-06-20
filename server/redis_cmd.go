@@ -7,18 +7,6 @@ import (
 	"github.com/redis-server/resp"
 )
 
-// func UnwatchAllKeys(client *Client) {
-// 	for key, clients := range watchedKeys {
-// 		watchedKeys[key] = removeClient(clients, client)
-
-// 		if len(watchedKeys[key]) == 0 {
-// 			delete(watchedKeys, key)
-// 		}
-// 	}
-
-// 	client.flag &= ^CLIENT_CAS
-// }
-
 func removeClient(slice []*Client, target *Client) []*Client {
 	newSlice := make([]*Client, 0, len(slice))
 
