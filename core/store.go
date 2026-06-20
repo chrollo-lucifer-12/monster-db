@@ -53,6 +53,7 @@ func Init() {
 		"EXEC":         ExecCmd{},
 		"DISCARD":      DiscardCmd{},
 		"PING":         PingCmd{},
+		"GEOADD":       GeoAddCmd{},
 	}
 }
 
