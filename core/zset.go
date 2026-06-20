@@ -20,11 +20,13 @@ func (z *Zset) Add(member string, score int) {
 	z.dict[member] = insertedNode
 }
 
-func (z *Zset) Delete(member string) {
+func (z *Zset) Delete(member string) int {
 	foundNode, exists := z.dict[member]
 	if exists {
 		z.list.delete(member, foundNode.score)
+		return 1
 	}
+	return 0
 }
 
 func (z *Zset) Search(member string) (int, bool) {

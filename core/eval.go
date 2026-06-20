@@ -594,6 +594,61 @@ func evalZADD(args []string) []byte {
 	return RESP_ONE
 }
 
+func evalZREM(args []string) []byte {
+	if len(args) < 2 {
+		return resp.Encode(errors.New("ERR wrong number of arguments for 'zrem' command"), false)
+	}
+
+	key := args[0]
+	obj := Get(key)
+
+	if obj == nil {
+		return RESP_NIL
+	}
+
+	if err := assertType(obj.TypeEncoding, OBJ_TYPE_ZSET); err != nil {
+		return RESP_NIL
+	}
+
+	zs := obj.Value.(*Zset)
+
+	c := 0
+
+	for _, member := range args[1:] {
+		c += zs.Delete(member)
+	}
+
+	return resp.Encode(c, false)
+}
+
+func evalZSCORE(args []string) []byte {
+	if len(args) != 2 {
+		return resp.Encode(errors.New("ERR wrong number of arguments for 'zscore' command"), false)
+	}
+
+	key := args[0]
+	member := args[1]
+	obj := Get(key)
+
+	if obj == nil {
+		return RESP_NIL
+	}
+
+	if err := assertType(obj.TypeEncoding, OBJ_TYPE_ZSET); err != nil {
+		return RESP_NIL
+	}
+
+	zs := obj.Value.(*Zset)
+
+	score, exists := zs.Search(member)
+
+	if !exists {
+		return RESP_NIL
+	}
+
+	return resp.Encode(score, false)
+}
+
 func Eval(cmd *RedisCmd) []byte {
 
 	switch cmd.Cmd {
@@ -647,6 +702,10 @@ func Eval(cmd *RedisCmd) []byte {
 		return evalSREM(cmd.Args)
 	case "ZADD":
 		return evalZADD(cmd.Args)
+	case "ZREM":
+		return evalZREM(cmd.Args)
+	case "ZSCORE":
+		return evalZSCORE(cmd.Args)
 	default:
 		return evalPING(cmd.Args)
 	}
