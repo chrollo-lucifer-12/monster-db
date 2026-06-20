@@ -1,6 +1,7 @@
 package core
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"os"
@@ -9,6 +10,37 @@ import (
 	"github.com/redis-server/config"
 	"github.com/redis-server/resp"
 )
+
+type nullClient struct{}
+
+func (nullClient) SetFlag(flag uint8)      {}
+func (nullClient) ClearFlag(flag uint8)    {}
+func (nullClient) HasFlag(flag uint8) bool { return false }
+
+func (nullClient) AppendReply(b []byte) {}
+
+func (nullClient) ResetMultiState()           {}
+func (nullClient) QueueCommand(cmd *RedisCmd) {}
+func (nullClient) MultiCommands() RedisCmds   { return nil }
+func (nullClient) AbortMulti()                {}
+func (nullClient) IsMultiAborted() bool       { return false }
+
+func (nullClient) Key() []byte     { return nil }
+func (nullClient) SetKey(k []byte) {}
+
+func (nullClient) Subscribe(key string) (int, bool)   { panic("core: SUBSCRIBE during AOF replay") }
+func (nullClient) Unsubscribe(key string) (int, bool) { panic("core: UNSUBSCRIBE during AOF replay") }
+func (nullClient) SubscribedKeys() []string           { return nil }
+func (nullClient) Publish(key, message string) int    { panic("core: PUBLISH during AOF replay") }
+
+func (nullClient) WatchKeys(keys []string) {}
+func (nullClient) UnwatchAllKeys()         {}
+
+func (nullClient) BlockOn(key string, timeoutMs int) {
+	panic("core: BLPOP blocked during AOF replay")
+}
+
+var NullClient ClientCommander = nullClient{}
 
 func writeCommand(fp *os.File, tokens []string) {
 	fp.Write(resp.Encode(tokens, false))
@@ -67,6 +99,8 @@ func Restoreaof() {
 		return
 	}
 
+	ctx := WithClient(context.Background(), NullClient)
+
 	for _, raw := range decoded {
 		arr, ok := raw.([]interface{})
 		if !ok || len(arr) == 0 {
@@ -86,12 +120,9 @@ func Restoreaof() {
 			}
 		}
 
-		cmd := RedisCmd{
-			Cmd:  cmdName,
-			Args: args,
-		}
+		cmdImpl, _ := Lookup(cmdName)
 
-		Eval(&cmd)
+		cmdImpl.Execute(ctx, NullClient, args)
 	}
 
 	fmt.Println("AOF replay done")

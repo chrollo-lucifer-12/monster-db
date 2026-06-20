@@ -1,6 +1,7 @@
 package server
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"net"
@@ -204,8 +205,11 @@ func ReadLiveReplicationStream(loop *EventLoop, fd int, clientData any) {
 		client.QueryBuf = client.QueryBuf[:len(client.QueryBuf)-remaining]
 	}
 
+	ctx := core.WithClient(context.Background(), client)
+
 	for _, cmd := range cmds {
-		core.Eval(cmd)
+		cmdImpl, _ := core.Lookup(cmd.Cmd)
+		cmdImpl.Execute(ctx, client, cmd.Args)
 	}
 
 	fmt.Printf("[Replica Log Ingest] Parsed %d bytes from Master stream\n", n)
