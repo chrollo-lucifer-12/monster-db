@@ -1,25 +1,23 @@
 package server
 
 import (
-	"log"
-	"strconv"
-	"time"
+	"context"
 
 	"github.com/redis-server/core"
 	"github.com/redis-server/resp"
 )
 
-func UnwatchAllKeys(client *Client) {
-	for key, clients := range watchedKeys {
-		watchedKeys[key] = removeClient(clients, client)
+// func UnwatchAllKeys(client *Client) {
+// 	for key, clients := range watchedKeys {
+// 		watchedKeys[key] = removeClient(clients, client)
 
-		if len(watchedKeys[key]) == 0 {
-			delete(watchedKeys, key)
-		}
-	}
+// 		if len(watchedKeys[key]) == 0 {
+// 			delete(watchedKeys, key)
+// 		}
+// 	}
 
-	client.flag &= ^CLIENT_CAS
-}
+// 	client.flag &= ^CLIENT_CAS
+// }
 
 func removeClient(slice []*Client, target *Client) []*Client {
 	newSlice := make([]*Client, 0, len(slice))
@@ -34,111 +32,71 @@ func removeClient(slice []*Client, target *Client) []*Client {
 }
 
 func respond(cmds core.RedisCmds, client *Client, loop *EventLoop) {
-
 	for _, cmd := range cmds {
-
-		if client.flag&MULTI_MODE != 0 && cmd.Cmd != "EXEC" && cmd.Cmd != "DISCARD" {
-			client.multistate.cmds = append(client.multistate.cmds, cmd)
-			client.ReplyBuf = append(client.ReplyBuf, []byte("+QUEUED\r\n")...)
+		if client.HasFlag(core.MULTI_MODE) && cmd.Cmd != "EXEC" && cmd.Cmd != "DISCARD" {
+			if _, ok := core.Lookup(cmd.Cmd); !ok {
+				client.AbortMulti()
+				client.AppendReply([]byte("-ERR unknown command '" + cmd.Cmd + "'\r\n"))
+				continue
+			}
+			client.QueueCommand(cmd)
+			client.AppendReply([]byte("+QUEUED\r\n"))
 			continue
 		}
 
-		if client.flag&CLIENT_BLOCKED != 0 {
+		if client.HasFlag(CLIENT_BLOCKED) {
 			return
 		}
 
-		if client.flag&CLIENT_SUB != 0 {
-			client.ReplyBuf = append(client.ReplyBuf, []byte("-ERR only (P)SUBSCRIBE / (P)UNSUBSCRIBE / PING / QUIT allowed in this context\r\n")...)
+		if client.HasFlag(CLIENT_SUB) &&
+			cmd.Cmd != "SUBSCRIBE" && cmd.Cmd != "UNSUBSCRIBE" &&
+			cmd.Cmd != "PSUBSCRIBE" && cmd.Cmd != "PUNSUBSCRIBE" &&
+			cmd.Cmd != "PING" && cmd.Cmd != "QUIT" {
+			client.AppendReply([]byte("-ERR only (P)SUBSCRIBE / (P)UNSUBSCRIBE / PING / QUIT allowed in this context\r\n"))
 			continue
 		}
 
 		switch cmd.Cmd {
-
 		case "REPLCONF":
 			HandleMasterReplConfCommand(client, cmd.Args)
-
+			continue
 		case "PSYNC":
 			HandleMasterPsyncCommand(loop, client, cmd.Args)
-
+			continue
 		case "REPLICAOF":
 			HandleReplicaOfCommand(client, cmd.Args)
-
-		case "SUBSCRIBE":
-
-			HandleSubscribe(client, cmd.Args)
 			continue
-
-		case "UNSUBSCRIBE":
-
-			HandleUnsubscribe(client, cmd.Args)
-			continue
-
-		case "PUBLISH":
-
-			HandlePublish(client, cmd.Args)
-			continue
-
-		case "BLPOP":
-
-			if core.IsEmpty(cmd.Args[0]) {
-				waitingKeys[cmd.Args[0]] = append(waitingKeys[cmd.Args[0]], client)
-				timeout, _ := strconv.Atoi(cmd.Args[1])
-				log.Printf(
-					"SETTING BLOCKED: client=%p fd=%d flags_before=%08b",
-					client,
-					client.Fd,
-					client.flag,
-				)
-				client.flag |= CLIENT_BLOCKED
-				if timeout > 0 {
-					client.when = time.Now().Add(time.Duration(timeout) * time.Millisecond)
-				} else {
-					client.when = time.Time{}
-				}
-			} else {
-				client.ReplyBuf = append(client.ReplyBuf, core.Eval(&core.RedisCmd{
-					Cmd:  "LPOP",
-					Args: []string{cmd.Args[0]},
-				})...)
-			}
-
-			return
-
-		case "WATCH":
-
-			err := HandleWatch(client, cmd.Args)
-			if err != nil {
-				break
-			}
-			continue
-
-		case "MULTI":
-
-			HandleMulti(client, cmd.Args)
-			continue
-
-		case "EXEC":
-			err := HandleExec(client, cmd.Args)
-			if err != nil {
-				break
-			}
-			continue
-
-		case "DISCARD":
-
-			err := HandleDiscard(client, cmd.Args)
-			if err != nil {
-				break
-			}
-			continue
-
-		default:
-			if cmd.Cmd == "SET" || cmd.Cmd == "DEL" || cmd.Cmd == "RPUSH" || cmd.Cmd == "LPUSH" || cmd.Cmd == "INCR" {
-				args := append([]string{cmd.Cmd}, cmd.Args...)
-				HandleInformReplicas(resp.Encode(args, false))
-			}
-
-			client.ReplyBuf = append(client.ReplyBuf, core.Eval(cmd)...)
 		}
+
+		ctx := core.WithClient(context.Background(), client)
+
+		cmdImpl, ok := core.Lookup(cmd.Cmd)
+		if !ok {
+			client.AppendReply([]byte("-ERR unknown command\r\n"))
+			continue
+		}
+
+		if isReplicatedCmd(cmd.Cmd) {
+			args := append([]string{cmd.Cmd}, cmd.Args...)
+			HandleInformReplicas(resp.Encode(args, false))
+		}
+
+		reply := cmdImpl.Execute(ctx, client, cmd.Args)
+
+		if reply == nil && client.HasFlag(CLIENT_BLOCKED) {
+			return
+		}
+		if reply != nil {
+			client.AppendReply(reply)
+		}
+	}
+}
+
+func isReplicatedCmd(name string) bool {
+	switch name {
+	case "SET", "DEL", "RPUSH", "LPUSH", "INCR":
+		return true
+	default:
+		return false
 	}
 }

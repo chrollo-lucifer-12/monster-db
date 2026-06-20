@@ -2,6 +2,7 @@ package core
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"fmt"
 	"log"
@@ -762,4 +763,18 @@ func Eval(cmd *RedisCmd) []byte {
 		return evalPING(cmd.Args)
 	}
 
+}
+
+func EvalCtx(ctx context.Context, redisCmd *RedisCmd) []byte {
+	cmd, ok := registry[redisCmd.Cmd]
+	if !ok {
+		cmd = PingCmd{}
+	}
+
+	client, ok := ClientFromContext(ctx)
+	if !ok {
+		return resp.Encode(errors.New("ERR no client in context"), false)
+	}
+
+	return cmd.Execute(ctx, client, redisCmd.Args)
 }

@@ -8,11 +8,57 @@ import (
 var store map[string]*Obj
 var expires map[*Obj]uint64
 var ePool *EvictionPool
+var registry map[string]Command
 
 func Init() {
 	store = make(map[string]*Obj)
 	expires = make(map[*Obj]uint64)
 	ePool = newEvictionPool(16)
+
+	registry = map[string]Command{
+		"SET":          SetCmd{},
+		"GET":          GetCmd{},
+		"TTL":          TtlCmd{},
+		"DEL":          DelCmd{},
+		"EXPIRE":       ExpCmd{},
+		"BGREWRITEAOF": AOFCmd{},
+		"INCR":         IncrCmd{},
+		"INFO":         InfoCmd{},
+		"CLIENT":       ClientCmd{},
+		"LATENCY":      LatencyCmd{},
+		"SLEEP":        SleepCmd{},
+		"RPUSH":        RPUSHCmd{},
+		"LPUSH":        LPUSHCmd{},
+		"LLEN":         LLENCmd{},
+		"LRANGE":       LRANGECmd{},
+		"LPOP":         LPOPCmd{},
+		"BF.ADD":       BFADDCmd{},
+		"BF.EXISTS":    BFEXISTSCmd{},
+		"BF.RESERVE":   BFRESERVECmd{},
+		"SADD":         SaddCmd{},
+		"SCARD":        ScardCmd{},
+		"SISMEMBER":    SismemberCmd{},
+		"SMEMBERS":     SmembersCmd{},
+		"SREM":         SremCmd{},
+		"ZADD":         ZaddCmd{},
+		"ZREM":         ZremCmd{},
+		"ZSCORE":       ZscoreCmd{},
+		"ZRANGE":       ZrangeCmd{},
+		"SUBSCRIBE":    SubCmd{},
+		"UNSUBSCRIBE":  UnsubCmd{},
+		"PUBLISH":      PublishCmd{},
+		"BLPOP":        BlpopCmd{},
+		"WATCH":        WatchCmd{},
+		"MULTI":        MultiCmd{},
+		"EXEC":         ExecCmd{},
+		"DISCARD":      DiscardCmd{},
+		"PING":         PingCmd{},
+	}
+}
+
+func Lookup(name string) (Command, bool) {
+	cmd, ok := registry[name]
+	return cmd, ok
 }
 
 func NewObj(value interface{}, expDurationMs int64, oType uint8, oEnc uint8) *Obj {
