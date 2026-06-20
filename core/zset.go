@@ -37,3 +37,14 @@ func (z *Zset) Search(member string) (int, bool) {
 
 	return 0, false
 }
+
+func (z *Zset) Range(start, stop int) []string {
+	nodes := z.list.zrange(start, stop)
+
+	res := make([]string, 0, len(nodes))
+	for _, node := range nodes {
+		res = append(res, node.member)
+	}
+
+	return res
+}

@@ -19,6 +19,25 @@ var RESP_ZERO []byte = []byte(":0\r\n")
 var RESP_ONE []byte = []byte(":1\r\n")
 var RESP_MINUS_ONE []byte = []byte(":-1\r\n")
 var RESP_MINUS_TWO []byte = []byte(":-2\r\n")
+var RESP_WRONG_TYPE []byte = []byte("+WRONG_TYPE\r\n")
+
+func errWrongArgs(cmd string) []byte {
+	return resp.Encode(errors.New(
+		"ERR wrong number of arguments for '"+cmd+"' command",
+	), false)
+}
+
+func errWrongType() []byte {
+	return resp.Encode(errors.New(
+		"WRONGTYPE Operation against a key holding the wrong kind of value",
+	), false)
+}
+
+func errInvalidInt() []byte {
+	return resp.Encode(errors.New(
+		"ERR value is not an integer or out of range",
+	), false)
+}
 
 func evalPING(args []string) []byte {
 	var b []byte
@@ -571,11 +590,16 @@ func evalSREM(args []string) []byte {
 
 func evalZADD(args []string) []byte {
 	if len(args) != 3 {
-		return resp.Encode(errors.New("ERR wrong number of arguments for 'zadd' command"), false)
+		return errWrongArgs("zadd")
 	}
 
 	key := args[0]
-	score, _ := strconv.ParseInt(args[1], 10, 64)
+	score, err := strconv.ParseInt(args[1], 10, 64)
+
+	if err != nil {
+		return errInvalidInt()
+	}
+
 	member := args[2]
 
 	obj := Get(key)
@@ -596,7 +620,7 @@ func evalZADD(args []string) []byte {
 
 func evalZREM(args []string) []byte {
 	if len(args) < 2 {
-		return resp.Encode(errors.New("ERR wrong number of arguments for 'zrem' command"), false)
+		return errWrongArgs("zrem")
 	}
 
 	key := args[0]
@@ -607,7 +631,7 @@ func evalZREM(args []string) []byte {
 	}
 
 	if err := assertType(obj.TypeEncoding, OBJ_TYPE_ZSET); err != nil {
-		return RESP_NIL
+		return errWrongType()
 	}
 
 	zs := obj.Value.(*Zset)
@@ -623,11 +647,41 @@ func evalZREM(args []string) []byte {
 
 func evalZSCORE(args []string) []byte {
 	if len(args) != 2 {
-		return resp.Encode(errors.New("ERR wrong number of arguments for 'zscore' command"), false)
+		return errWrongArgs("zscore")
 	}
 
 	key := args[0]
 	member := args[1]
+	obj := Get(key)
+
+	if obj == nil {
+		return RESP_NIL
+	}
+
+	if err := assertType(obj.TypeEncoding, OBJ_TYPE_ZSET); err != nil {
+		return errWrongType()
+	}
+
+	zs := obj.Value.(*Zset)
+
+	score, exists := zs.Search(member)
+
+	if !exists {
+		return RESP_NIL
+	}
+
+	return resp.Encode(score, false)
+}
+
+func evalZRANGE(args []string) []byte {
+	if len(args) != 3 {
+		return resp.Encode(errors.New("ERR wrong number of arguments for 'zscore' command"), false)
+	}
+
+	key := args[0]
+	start, _ := strconv.ParseInt(args[1], 10, 64)
+	stop, _ := strconv.ParseInt(args[2], 10, 64)
+
 	obj := Get(key)
 
 	if obj == nil {
@@ -640,13 +694,9 @@ func evalZSCORE(args []string) []byte {
 
 	zs := obj.Value.(*Zset)
 
-	score, exists := zs.Search(member)
+	members := zs.Range(int(start), int(stop))
 
-	if !exists {
-		return RESP_NIL
-	}
-
-	return resp.Encode(score, false)
+	return resp.Encode(members, false)
 }
 
 func Eval(cmd *RedisCmd) []byte {
@@ -706,6 +756,8 @@ func Eval(cmd *RedisCmd) []byte {
 		return evalZREM(cmd.Args)
 	case "ZSCORE":
 		return evalZSCORE(cmd.Args)
+	case "ZRANGE":
+		return evalZRANGE(cmd.Args)
 	default:
 		return evalPING(cmd.Args)
 	}

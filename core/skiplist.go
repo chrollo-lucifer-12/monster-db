@@ -134,3 +134,23 @@ func (sl *Skiplist) search(member string, score int) *SkiplistNode {
 
 	return nil
 }
+
+func (sl *Skiplist) zrange(start, stop int) []*SkiplistNode {
+	result := []*SkiplistNode{}
+
+	current := sl.head.forward[0]
+	index := 0
+
+	for current != nil && index < start {
+		current = current.forward[0]
+		index++
+	}
+
+	for current != nil && index <= stop {
+		result = append(result, current)
+		current = current.forward[0]
+		index++
+	}
+
+	return result
+}
