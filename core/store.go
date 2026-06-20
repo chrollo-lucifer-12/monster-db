@@ -54,6 +54,7 @@ func Init() {
 		"DISCARD":      DiscardCmd{},
 		"PING":         PingCmd{},
 		"GEOADD":       GeoAddCmd{},
+		"GEOHASH":      GeoHashCmd{},
 	}
 }
 

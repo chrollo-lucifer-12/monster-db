@@ -9,7 +9,34 @@ import (
 
 type GeoAddCmd struct{}
 
+type GeoHashCmd struct{}
+
 func (GeoAddCmd) Name() string { return "GEOADD" }
+
+func (GeoHashCmd) Name() string { return "GEOHASH" }
+
+func (GeoHashCmd) Execute(ctx context.Context, c ClientCommander, args []string) []byte {
+	if len(args) < 2 {
+		return errWrongArgs("geohash")
+	}
+
+	key := args[0]
+	obj := Get(key)
+
+	if obj == nil {
+		return RESP_NIL
+	}
+
+	if err := assertType(obj.TypeEncoding, OBJ_TYPE_GEO_SPATIAL); err != nil {
+		return errWrongType()
+	}
+
+	g := obj.Value.(*GeoSpatial)
+
+	hashes := g.GeoHash(args[1:])
+
+	return resp.Encode(hashes, false)
+}
 
 func (GeoAddCmd) Execute(ctx context.Context, c ClientCommander, args []string) []byte {
 	if len(args) < 4 {

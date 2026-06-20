@@ -1,5 +1,7 @@
 package core
 
+import "strings"
+
 type GeoEntry struct {
 	Member string
 	Lat    float64
@@ -7,12 +9,14 @@ type GeoEntry struct {
 }
 
 type GeoSpatial struct {
-	trie *Trie
+	trie  *Trie
+	index map[string]GeoEntry
 }
 
 func NewGeoSpatial() *GeoSpatial {
 	return &GeoSpatial{
-		trie: NewTrie(),
+		trie:  NewTrie(),
+		index: make(map[string]GeoEntry),
 	}
 }
 
@@ -26,6 +30,37 @@ func (g *GeoSpatial) Insert(member string, lat, lon float64) {
 	bits := geoHash(lat, lon, 20)
 
 	g.trie.insert(entry, bits)
+
+	g.index[member] = entry
+}
+
+func (g *GeoSpatial) GeoHash(members []string) []string {
+
+	var res []string
+
+	for _, member := range members {
+		entry, ok := g.index[member]
+		if !ok {
+			res = append(res, "nil")
+			continue
+		}
+
+		res = append(res, bitsToString(geoHash(entry.Lat, entry.Lon, 20)))
+	}
+
+	return res
+}
+
+func bitsToString(bits []int) string {
+	var sb strings.Builder
+	for _, b := range bits {
+		if b == 0 {
+			sb.WriteByte('0')
+		} else {
+			sb.WriteByte('1')
+		}
+	}
+	return sb.String()
 }
 
 func geoHash(lat, lon float64, bits int) []int {
