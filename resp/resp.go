@@ -152,6 +152,20 @@ func encodeString(v string) []byte {
 func Encode(value any, isSimple bool) []byte {
 	switch v := value.(type) {
 
+	case nil:
+		return []byte("*-1\r\n")
+
+	case [][]string:
+		var buf bytes.Buffer
+
+		buf.WriteString(fmt.Sprintf("%d\r\n", len(v)))
+
+		for _, row := range v {
+			buf.Write(Encode(row, false))
+		}
+
+		return buf.Bytes()
+
 	case string:
 		if isSimple {
 			return []byte(fmt.Sprintf("+%s\r\n", v))

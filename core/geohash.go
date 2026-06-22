@@ -1,11 +1,21 @@
 package core
 
-import "strings"
+import (
+	"strconv"
+	"strings"
+)
 
 type GeoEntry struct {
 	Member string
 	Lat    float64
 	Lon    float64
+}
+
+func (e GeoEntry) String() []string {
+	sLat := strconv.FormatFloat(e.Lat, 'f', -1, 64)
+	sLon := strconv.FormatFloat(e.Lon, 'f', -1, 64)
+
+	return []string{sLat, sLon}
 }
 
 type GeoSpatial struct {
@@ -18,6 +28,20 @@ func NewGeoSpatial() *GeoSpatial {
 		trie:  NewTrie(),
 		index: make(map[string]GeoEntry),
 	}
+}
+
+func (g *GeoSpatial) Search(lat, lon float64) []string {
+	bits := geoHash(lat, lon, 20)
+
+	var res []string
+
+	members := g.trie.search(bits)
+
+	for _, member := range members {
+		res = append(res, member.Member)
+	}
+
+	return res
 }
 
 func (g *GeoSpatial) Insert(member string, lat, lon float64) {

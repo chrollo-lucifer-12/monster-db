@@ -55,6 +55,9 @@ func Init() {
 		"PING":         PingCmd{},
 		"GEOADD":       GeoAddCmd{},
 		"GEOHASH":      GeoHashCmd{},
+		"GEODIST":      GeoDistCmd{},
+		"GEOPOS":       GeoPosCmd{},
+		"GEOSEARCH":    GeoSearchCmd{},
 	}
 }
 

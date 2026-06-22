@@ -25,6 +25,26 @@ func NewTrie() *Trie {
 	}
 }
 
+func (t *Trie) search(bits []int) []GeoEntry {
+	curr := t.root
+
+	for _, b := range bits {
+		if b == 0 {
+			if curr.zero == nil {
+				return nil
+			}
+			curr = curr.zero
+		} else {
+			if curr.one == nil {
+				return nil
+			}
+			curr = curr.one
+		}
+	}
+
+	return curr.members
+}
+
 func (t *Trie) insert(entry GeoEntry, bits []int) {
 	curr := t.root
 
