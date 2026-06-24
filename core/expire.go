@@ -6,11 +6,11 @@ func getCurrentClock() uint32 {
 	return uint32(time.Now().Unix()) & 0x00FFFFFF
 }
 
-func setExpiry(obj *Obj, expDurationMs int64) {
+func setExpiry(obj Obj, expDurationMs int64) {
 	expires[obj] = uint64(time.Now().UnixMilli()) + uint64(expDurationMs)
 }
 
-func hasExpired(obj *Obj) bool {
+func hasExpired(obj Obj) bool {
 	exp, ok := expires[obj]
 
 	if !ok {
@@ -20,7 +20,7 @@ func hasExpired(obj *Obj) bool {
 	return exp <= uint64(time.Now().UnixMilli())
 }
 
-func getExpiry(obj *Obj) (uint64, bool) {
+func getExpiry(obj Obj) (uint64, bool) {
 	exp, ok := expires[obj]
 	return exp, ok
 }

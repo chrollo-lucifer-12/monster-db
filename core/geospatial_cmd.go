@@ -33,9 +33,9 @@ func (GeoHashCmd) Execute(ctx context.Context, c ClientCommander, args []string)
 	}
 
 	key := args[0]
-	obj := Get(key)
+	obj, exists := Get(key)
 
-	if obj == nil {
+	if !exists {
 		return RESP_NIL
 	}
 
@@ -56,11 +56,11 @@ func (GeoAddCmd) Execute(ctx context.Context, c ClientCommander, args []string) 
 	}
 
 	key := args[0]
-	obj := Get(key)
+	obj, exists := Get(key)
 
 	var g *GeoSpatial
 
-	if obj == nil {
+	if !exists {
 		g = NewGeoSpatial()
 		Put(key, NewObj(g, -1, OBJ_TYPE_GEO_SPATIAL, OBJ_ENCODING_TRIE))
 	} else {
@@ -90,9 +90,9 @@ func (GeoDistCmd) Execute(ctx context.Context, c ClientCommander, args []string)
 	member1 := args[1]
 	member2 := args[2]
 
-	obj := Get(key)
+	obj, exists := Get(key)
 
-	if obj == nil {
+	if !exists {
 		return RESP_NIL
 	}
 
@@ -124,9 +124,9 @@ func (GeoPosCmd) Execute(ctx context.Context, c ClientCommander, args []string) 
 
 	key := args[0]
 
-	obj := Get(key)
+	obj, exists := Get(key)
 
-	if obj == nil {
+	if !exists {
 		return RESP_NIL
 	}
 
@@ -157,9 +157,9 @@ func (GeoSearchCmd) Execute(ctx context.Context, c ClientCommander, args []strin
 	}
 
 	key := args[0]
-	obj := Get(key)
+	obj, exists := Get(key)
 
-	if obj == nil {
+	if !exists {
 		return RESP_NIL
 	}
 

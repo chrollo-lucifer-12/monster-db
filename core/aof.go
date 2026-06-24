@@ -46,7 +46,7 @@ func writeCommand(fp *os.File, tokens []string) {
 	fp.Write(resp.Encode(tokens, false))
 }
 
-func dumpkey(fp *os.File, k string, obj *Obj) {
+func dumpkey(fp *os.File, k string, obj Obj) {
 	writeCommand(fp, []string{
 		"SET",
 		k,

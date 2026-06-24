@@ -60,7 +60,7 @@ func LoadRDB() {
 		value := make([]byte, valLen)
 		fp.Read(value)
 
-		store[string(key)] = &Obj{
+		store[string(key)] = Obj{
 			TypeEncoding:   typeBuf[0],
 			LastAccessedAt: expiresAt,
 			Value:          value,

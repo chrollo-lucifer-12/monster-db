@@ -17,10 +17,10 @@ func (SaddCmd) Execute(ctx context.Context, c ClientCommander, args []string) []
 		return resp.Encode(errors.New("ERR wrong number of arguments for 'sadd' command"), false)
 	}
 	key := args[0]
-	obj := Get(key)
+	obj, exists := Get(key)
 
 	var is *Intset
-	if obj == nil {
+	if !exists {
 		is = NewIntset()
 		Put(key, NewObj(is, -1, uint8(OBJ_TYPE_SET), OBJ_ENCODING_INSET))
 	} else {
@@ -48,8 +48,8 @@ func (ScardCmd) Execute(ctx context.Context, c ClientCommander, args []string) [
 		return resp.Encode(errors.New("ERR wrong number of arguments for 'scard' command"), false)
 	}
 	key := args[0]
-	obj := Get(key)
-	if obj == nil {
+	obj, exists := Get(key)
+	if !exists {
 		return RESP_NIL
 	}
 	if err := assertType(obj.TypeEncoding, uint8(OBJ_TYPE_SET)); err != nil {
@@ -68,8 +68,8 @@ func (SismemberCmd) Execute(ctx context.Context, c ClientCommander, args []strin
 		return resp.Encode(errors.New("ERR wrong number of arguments for 'sismember' command"), false)
 	}
 	key := args[0]
-	obj := Get(key)
-	if obj == nil {
+	obj, exsist := Get(key)
+	if !exsist {
 		return RESP_NIL
 	}
 	if err := assertType(obj.TypeEncoding, uint8(OBJ_TYPE_SET)); err != nil {
@@ -96,8 +96,8 @@ func (SmembersCmd) Execute(ctx context.Context, c ClientCommander, args []string
 		return resp.Encode(errors.New("ERR wrong number of arguments for 'smembers' command"), false)
 	}
 	key := args[0]
-	obj := Get(key)
-	if obj == nil {
+	obj, exists := Get(key)
+	if !exists {
 		return RESP_NIL
 	}
 	if err := assertType(obj.TypeEncoding, uint8(OBJ_TYPE_SET)); err != nil {
@@ -120,8 +120,8 @@ func (SremCmd) Execute(ctx context.Context, c ClientCommander, args []string) []
 		return resp.Encode(errors.New("ERR wrong number of arguments for 'srem' command"), false)
 	}
 	key := args[0]
-	obj := Get(key)
-	if obj == nil {
+	obj, exists := Get(key)
+	if !exists {
 		return RESP_NIL
 	}
 	if err := assertType(obj.TypeEncoding, uint8(OBJ_TYPE_SET)); err != nil {

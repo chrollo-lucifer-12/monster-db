@@ -24,9 +24,9 @@ func (BFEXISTSCmd) Execute(ctx context.Context, c ClientCommander, args []string
 	key := args[0]
 	pat := args[1]
 
-	obj := Get(key)
+	obj, exists := Get(key)
 
-	if obj == nil {
+	if !exists {
 		return RESP_NIL
 	}
 
@@ -51,9 +51,9 @@ func (BFADDCmd) Execute(ctx context.Context, c ClientCommander, args []string) [
 	key := args[0]
 	pat := args[1]
 
-	obj := Get(key)
+	obj, exists := Get(key)
 
-	if obj == nil {
+	if !exists {
 		return RESP_NIL
 	}
 

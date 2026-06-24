@@ -26,9 +26,9 @@ func (LLENCmd) Execute(ctx context.Context, c ClientCommander, args []string) []
 	}
 
 	var key string = args[0]
-	obj := Get(key)
+	obj, exists := Get(key)
 
-	if obj == nil {
+	if !exists {
 		return RESP_ZERO
 	}
 
@@ -47,11 +47,11 @@ func (LPUSHCmd) Execute(ctx context.Context, c ClientCommander, args []string) [
 	}
 
 	var key string = args[0]
-	obj := Get(key)
+	obj, exists := Get(key)
 
 	var ql *Quicklist
 
-	if obj == nil {
+	if !exists {
 		ql = NewQuicklist()
 		obj = NewObj(ql, -1, OBJ_TYPE_LIST, OBJ_ENCODING_LISTPACK)
 		Put(key, obj)
@@ -87,11 +87,11 @@ func (RPUSHCmd) Execute(ctx context.Context, c ClientCommander, args []string) [
 	}
 
 	var key string = args[0]
-	obj := Get(key)
+	obj, exists := Get(key)
 
 	var ql *Quicklist
 
-	if obj == nil {
+	if !exists {
 		ql = NewQuicklist()
 		obj = NewObj(ql, -1, OBJ_TYPE_LIST, OBJ_ENCODING_LISTPACK)
 		Put(key, obj)
@@ -130,9 +130,9 @@ func (LRANGECmd) Execute(ctx context.Context, c ClientCommander, args []string) 
 	start, _ := strconv.Atoi(args[1])
 	stop, _ := strconv.Atoi(args[2])
 
-	obj := Get(key)
+	obj, exists := Get(key)
 
-	if obj == nil {
+	if !exists {
 		return RESP_NIL
 	}
 
@@ -155,9 +155,9 @@ func (LPOPCmd) Execute(ctx context.Context, c ClientCommander, args []string) []
 		count, _ = strconv.Atoi(args[1])
 	}
 
-	obj := Get(key)
+	obj, exists := Get(key)
 
-	if obj == nil {
+	if !exists {
 		return RESP_NIL
 	}
 

@@ -5,14 +5,14 @@ import (
 	"github.com/redis-server/config"
 )
 
-var store map[string]*Obj
-var expires map[*Obj]uint64
+var store map[string]Obj
+var expires map[Obj]uint64
 var ePool *EvictionPool
 var registry map[string]Command
 
 func Init() {
-	store = make(map[string]*Obj)
-	expires = make(map[*Obj]uint64)
+	store = make(map[string]Obj)
+	expires = make(map[Obj]uint64)
 	ePool = newEvictionPool(16)
 
 	registry = map[string]Command{
@@ -66,7 +66,7 @@ func Lookup(name string) (Command, bool) {
 	return cmd, ok
 }
 
-func NewObj(value interface{}, expDurationMs int64, oType uint8, oEnc uint8) *Obj {
+func NewObj(value interface{}, expDurationMs int64, oType uint8, oEnc uint8) Obj {
 
 	obj := Obj{
 		Value:          value,
@@ -75,13 +75,14 @@ func NewObj(value interface{}, expDurationMs int64, oType uint8, oEnc uint8) *Ob
 	}
 
 	if expDurationMs > 0 {
-		setExpiry(&obj, expDurationMs)
+		setExpiry(obj, expDurationMs)
 	}
 
-	return &obj
+	return obj
 }
 
-func Put(k string, obj *Obj) {
+func Put(k string, obj Obj) {
+
 	if len(store) >= config.KeyLimit {
 		evict()
 	}
@@ -105,19 +106,19 @@ func Put(k string, obj *Obj) {
 	KeyspaceStat[0]["keys"]++
 }
 
-func Get(k string) *Obj {
-	v := store[k]
-	if v == nil {
-		return nil
+func Get(k string) (Obj, bool) {
+	v, ok := store[k]
+	if !ok {
+		return v, ok
 	}
-	if v != nil {
+	if ok {
 		if hasExpired(v) {
 			Del(k)
-			return nil
+			return v, false
 		}
 	}
 	v.LastAccessedAt = getCurrentClock()
-	return v
+	return v, true
 }
 
 func Del(k string) bool {

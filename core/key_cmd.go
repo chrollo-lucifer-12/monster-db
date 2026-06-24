@@ -47,9 +47,9 @@ func (IncrCmd) Execute(ctx context.Context, c ClientCommander, args []string) []
 	}
 
 	var key string = args[0]
-	obj := Get(key)
+	obj, exists := Get(key)
 
-	if obj == nil {
+	if !exists {
 		obj = NewObj("0", -1, OBJ_TYPE_STRING, OBJ_ENCODING_INT)
 		Put(key, obj)
 	}
@@ -81,9 +81,9 @@ func (ExpCmd) Execute(ctx context.Context, c ClientCommander, args []string) []b
 		return resp.Encode(errors.New("(error) ERR value is not an integer or out of range"), false)
 	}
 
-	obj := Get(key)
+	obj, exists := Get(key)
 
-	if obj == nil {
+	if !exists {
 		return RESP_ZERO
 	}
 
@@ -99,9 +99,9 @@ func (TtlCmd) Execute(ctx context.Context, c ClientCommander, args []string) []b
 
 	var key string = args[0]
 
-	obj := Get(key)
+	obj, exists := Get(key)
 
-	if obj == nil {
+	if !exists {
 		return RESP_MINUS_TWO
 	}
 
@@ -174,9 +174,9 @@ func (GetCmd) Execute(ctx context.Context, c ClientCommander, args []string) []b
 
 	var key string = args[0]
 
-	obj := Get(key)
+	obj, exists := Get(key)
 
-	if obj == nil {
+	if !exists {
 		return RESP_NIL
 	}
 

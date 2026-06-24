@@ -22,9 +22,9 @@ func (ZaddCmd) Execute(ctx context.Context, c ClientCommander, args []string) []
 	}
 	member := args[2]
 
-	obj := Get(key)
+	obj, exists := Get(key)
 	var z *Zset
-	if obj == nil {
+	if !exists {
 		z = NewZset()
 		Put(key, NewObj(z, -1, OBJ_TYPE_ZSET, OBJ_ENCODING_SKIPLIST))
 	} else {
@@ -46,8 +46,8 @@ func (ZremCmd) Execute(ctx context.Context, c ClientCommander, args []string) []
 		return errWrongArgs("zrem")
 	}
 	key := args[0]
-	obj := Get(key)
-	if obj == nil {
+	obj, exists := Get(key)
+	if !exists {
 		return RESP_NIL
 	}
 	if err := assertType(obj.TypeEncoding, OBJ_TYPE_ZSET); err != nil {
@@ -72,8 +72,8 @@ func (ZscoreCmd) Execute(ctx context.Context, c ClientCommander, args []string) 
 	key := args[0]
 	member := args[1]
 
-	obj := Get(key)
-	if obj == nil {
+	obj, exists := Get(key)
+	if !exists {
 		return RESP_NIL
 	}
 	if err := assertType(obj.TypeEncoding, OBJ_TYPE_ZSET); err != nil {
@@ -102,8 +102,8 @@ func (ZrangeCmd) Execute(ctx context.Context, c ClientCommander, args []string) 
 		return errInvalidInt()
 	}
 
-	obj := Get(key)
-	if obj == nil {
+	obj, exists := Get(key)
+	if !exists {
 		return RESP_NIL
 	}
 	if err := assertType(obj.TypeEncoding, OBJ_TYPE_ZSET); err != nil {
