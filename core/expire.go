@@ -6,12 +6,12 @@ func getCurrentClock() uint32 {
 	return uint32(time.Now().Unix()) & 0x00FFFFFF
 }
 
-func setExpiry(obj Obj, expDurationMs int64) {
-	expires[obj] = uint64(time.Now().UnixMilli()) + uint64(expDurationMs)
+func setExpiry(key string, expDurationMs int64) {
+	expires[key] = uint64(time.Now().UnixMilli()) + uint64(expDurationMs)
 }
 
-func hasExpired(obj Obj) bool {
-	exp, ok := expires[obj]
+func hasExpired(key string) bool {
+	exp, ok := expires[key]
 
 	if !ok {
 		return false
@@ -20,8 +20,8 @@ func hasExpired(obj Obj) bool {
 	return exp <= uint64(time.Now().UnixMilli())
 }
 
-func getExpiry(obj Obj) (uint64, bool) {
-	exp, ok := expires[obj]
+func getExpiry(key string) (uint64, bool) {
+	exp, ok := expires[key]
 	return exp, ok
 }
 
@@ -29,8 +29,8 @@ func expireSample() float32 {
 	var limit int = 20
 	var expiredCount int = 0
 
-	for key, obj := range store {
-		if hasExpired(obj) {
+	for key, _ := range store {
+		if hasExpired(key) {
 			limit--
 			Del(key)
 		}

@@ -50,8 +50,8 @@ func (IncrCmd) Execute(ctx context.Context, c ClientCommander, args []string) []
 	obj, exists := Get(key)
 
 	if !exists {
-		obj = NewObj("0", -1, OBJ_TYPE_STRING, OBJ_ENCODING_INT)
-		Put(key, obj)
+		obj = NewObj("0", OBJ_TYPE_STRING, OBJ_ENCODING_INT)
+		Put(key, obj, -1)
 	}
 
 	if err := assertType(obj.TypeEncoding, OBJ_TYPE_STRING); err != nil {
@@ -81,13 +81,13 @@ func (ExpCmd) Execute(ctx context.Context, c ClientCommander, args []string) []b
 		return resp.Encode(errors.New("(error) ERR value is not an integer or out of range"), false)
 	}
 
-	obj, exists := Get(key)
+	_, exists := Get(key)
 
 	if !exists {
 		return RESP_ZERO
 	}
 
-	setExpiry(obj, exDurationSec*1000)
+	setExpiry(key, exDurationSec*1000)
 
 	return RESP_ONE
 }
@@ -99,13 +99,13 @@ func (TtlCmd) Execute(ctx context.Context, c ClientCommander, args []string) []b
 
 	var key string = args[0]
 
-	obj, exists := Get(key)
+	_, exists := Get(key)
 
 	if !exists {
 		return RESP_MINUS_TWO
 	}
 
-	exp, isExpirySet := getExpiry(obj)
+	exp, isExpirySet := getExpiry(key)
 
 	if !isExpirySet {
 		return RESP_MINUS_ONE
@@ -152,7 +152,7 @@ func (SetCmd) Execute(ctx context.Context, c ClientCommander, args []string) []b
 				return resp.Encode(errors.New("(error) ERR syntax error"), false)
 			}
 
-			exDurationSec, err := strconv.ParseInt(args[3], 10, 64)
+			exDurationSec, err := strconv.ParseInt(args[i], 10, 64)
 			if err != nil {
 				return resp.Encode(err, false)
 			}
@@ -163,7 +163,7 @@ func (SetCmd) Execute(ctx context.Context, c ClientCommander, args []string) []b
 			return resp.Encode(errors.New("(error) ERR syntax error"), false)
 		}
 	}
-	Put(key, NewObj(value, exDurationsMs, oType, oEnc))
+	Put(key, NewObj(value, oType, oEnc), exDurationsMs)
 	return RESP_OK
 }
 
@@ -180,7 +180,7 @@ func (GetCmd) Execute(ctx context.Context, c ClientCommander, args []string) []b
 		return RESP_NIL
 	}
 
-	if hasExpired(obj) {
+	if hasExpired(key) {
 		return RESP_NIL
 	}
 

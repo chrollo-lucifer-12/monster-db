@@ -22,7 +22,7 @@ func (SaddCmd) Execute(ctx context.Context, c ClientCommander, args []string) []
 	var is *Intset
 	if !exists {
 		is = NewIntset()
-		Put(key, NewObj(is, -1, uint8(OBJ_TYPE_SET), OBJ_ENCODING_INSET))
+		Put(key, NewObj(is, uint8(OBJ_TYPE_SET), OBJ_ENCODING_INSET), -1)
 	} else {
 		is = obj.Value.(*Intset)
 	}

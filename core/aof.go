@@ -53,7 +53,7 @@ func dumpkey(fp *os.File, k string, obj Obj) {
 		obj.Value.(string),
 	})
 
-	exp, isExpirySet := getExpiry(obj)
+	exp, isExpirySet := getExpiry(k)
 
 	if isExpirySet {
 		writeCommand(fp, []string{

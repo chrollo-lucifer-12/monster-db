@@ -26,7 +26,7 @@ func (ZaddCmd) Execute(ctx context.Context, c ClientCommander, args []string) []
 	var z *Zset
 	if !exists {
 		z = NewZset()
-		Put(key, NewObj(z, -1, OBJ_TYPE_ZSET, OBJ_ENCODING_SKIPLIST))
+		Put(key, NewObj(z, OBJ_TYPE_ZSET, OBJ_ENCODING_SKIPLIST), -1)
 	} else {
 		if err := assertType(obj.TypeEncoding, OBJ_TYPE_ZSET); err != nil {
 			return errWrongType()

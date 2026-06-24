@@ -53,8 +53,8 @@ func (LPUSHCmd) Execute(ctx context.Context, c ClientCommander, args []string) [
 
 	if !exists {
 		ql = NewQuicklist()
-		obj = NewObj(ql, -1, OBJ_TYPE_LIST, OBJ_ENCODING_LISTPACK)
-		Put(key, obj)
+		obj = NewObj(ql, OBJ_TYPE_LIST, OBJ_ENCODING_LISTPACK)
+		Put(key, obj, -1)
 	} else {
 		if err := assertType(obj.TypeEncoding, OBJ_TYPE_LIST); err != nil {
 			return resp.Encode(errors.New("WRONGTYPE Operation against a key holding the wrong kind of value"), false)
@@ -93,8 +93,8 @@ func (RPUSHCmd) Execute(ctx context.Context, c ClientCommander, args []string) [
 
 	if !exists {
 		ql = NewQuicklist()
-		obj = NewObj(ql, -1, OBJ_TYPE_LIST, OBJ_ENCODING_LISTPACK)
-		Put(key, obj)
+		obj = NewObj(ql, OBJ_TYPE_LIST, OBJ_ENCODING_LISTPACK)
+		Put(key, obj, -1)
 	} else {
 		if err := assertType(obj.TypeEncoding, OBJ_TYPE_LIST); err != nil {
 			return resp.Encode(errors.New("WRONGTYPE Operation against a key holding the wrong kind of value"), false)

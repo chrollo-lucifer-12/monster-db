@@ -80,7 +80,7 @@ func SaveRDB() {
 	for k, obj := range store {
 		keyBytes := []byte(k)
 
-		if hasExpired(obj) {
+		if hasExpired(k) {
 			continue
 		}
 

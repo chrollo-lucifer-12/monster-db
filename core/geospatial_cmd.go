@@ -62,7 +62,7 @@ func (GeoAddCmd) Execute(ctx context.Context, c ClientCommander, args []string) 
 
 	if !exists {
 		g = NewGeoSpatial()
-		Put(key, NewObj(g, -1, OBJ_TYPE_GEO_SPATIAL, OBJ_ENCODING_TRIE))
+		Put(key, NewObj(g, OBJ_TYPE_GEO_SPATIAL, OBJ_ENCODING_TRIE), -1)
 	} else {
 		g = obj.Value.(*GeoSpatial)
 	}

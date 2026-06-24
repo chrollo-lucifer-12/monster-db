@@ -6,13 +6,13 @@ import (
 )
 
 var store map[string]Obj
-var expires map[Obj]uint64
+var expires map[string]uint64
 var ePool *EvictionPool
 var registry map[string]Command
 
 func Init() {
 	store = make(map[string]Obj)
-	expires = make(map[Obj]uint64)
+	expires = make(map[string]uint64)
 	ePool = newEvictionPool(16)
 
 	registry = map[string]Command{
@@ -66,7 +66,7 @@ func Lookup(name string) (Command, bool) {
 	return cmd, ok
 }
 
-func NewObj(value interface{}, expDurationMs int64, oType uint8, oEnc uint8) Obj {
+func NewObj(value interface{}, oType uint8, oEnc uint8) Obj {
 
 	obj := Obj{
 		Value:          value,
@@ -74,14 +74,10 @@ func NewObj(value interface{}, expDurationMs int64, oType uint8, oEnc uint8) Obj
 		LastAccessedAt: getCurrentClock(),
 	}
 
-	if expDurationMs > 0 {
-		setExpiry(obj, expDurationMs)
-	}
-
 	return obj
 }
 
-func Put(k string, obj Obj) {
+func Put(k string, obj Obj, expDurationMs int64) {
 
 	if len(store) >= config.KeyLimit {
 		evict()
@@ -96,6 +92,10 @@ func Put(k string, obj Obj) {
 
 	obj.LastAccessedAt = getCurrentClock()
 	store[k] = obj
+
+	if expDurationMs > 0 {
+		setExpiry(k, expDurationMs)
+	}
 
 	if KeyspaceStat[0] == nil {
 		KeyspaceStat[0] = make(map[string]int)
@@ -112,7 +112,7 @@ func Get(k string) (Obj, bool) {
 		return v, ok
 	}
 	if ok {
-		if hasExpired(v) {
+		if hasExpired(k) {
 			Del(k)
 			return v, false
 		}
@@ -125,7 +125,7 @@ func Del(k string) bool {
 
 	if obj, ok := store[k]; ok {
 		delete(store, k)
-		delete(expires, obj)
+		delete(expires, k)
 		KeyspaceStat[0]["keys"]--
 
 		mem := obj.Size() + int64(len(k))

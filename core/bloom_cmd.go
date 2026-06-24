@@ -75,9 +75,9 @@ func (BFRESERVECmd) Execute(ctx context.Context, c ClientCommander, args []strin
 
 	bl := NewBloomFilter(capacity, errorRate)
 
-	obj := NewObj(bl, -1, uint8(OBJ_TYPE_BLOOM_FILTERS), OBJ_ENCODING_BOOL_ARR)
+	obj := NewObj(bl, uint8(OBJ_TYPE_BLOOM_FILTERS), OBJ_ENCODING_BOOL_ARR)
 
-	Put(key, obj)
+	Put(key, obj, -1)
 
 	return RESP_OK
 }
