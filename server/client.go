@@ -5,7 +5,6 @@ import (
 	"log"
 	"time"
 
-	"github.com/redis-server/alloc"
 	"github.com/redis-server/core"
 	"github.com/redis-server/resp"
 	"golang.org/x/sys/unix"
@@ -158,8 +157,6 @@ func freeClient(loop *EventLoop, client *Client) {
 	unix.Close(client.Fd)
 	con_clients--
 
-	alloc.Free(client.QueryBuf)
-	alloc.Free(client.ReplyBuf)
 }
 
 func (c *Client) BlockClient(key string) {
@@ -255,18 +252,9 @@ func HandleBlockedClients(loop *EventLoop, id int64, clientData any) int {
 
 func NewClient(fd int) *Client {
 
-	qBuf, err := alloc.Alloc(4096)
-	if err != nil {
-		log.Println("OOM")
-		return nil
-	}
+	qBuf := make([]byte, 4096)
 
-	rBuf, err := alloc.Alloc(4096)
-	if err != nil {
-		log.Println("OOM")
-		alloc.Free(qBuf)
-		return nil
-	}
+	rBuf := make([]byte, 4096)
 
 	return &Client{
 		Fd:            fd,

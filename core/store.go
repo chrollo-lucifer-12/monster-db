@@ -1,7 +1,6 @@
 package core
 
 import (
-	"github.com/redis-server/alloc"
 	"github.com/redis-server/config"
 )
 
@@ -11,7 +10,7 @@ var ePool *EvictionPool
 var registry map[string]Command
 
 func Init() {
-	store = make(map[string]Obj)
+	store = make(map[string]Obj, config.KeysLimit)
 	expires = make(map[string]uint64)
 	ePool = newEvictionPool(16)
 
@@ -83,13 +82,6 @@ func Put(k string, obj Obj, expDurationMs int64) {
 		evict()
 	}
 
-	mem := obj.Size() + int64(len(k))
-
-	_, err := alloc.Alloc(int(mem))
-	if err != nil {
-		return
-	}
-
 	obj.LastAccessedAt = getCurrentClock()
 	store[k] = obj
 
@@ -101,7 +93,9 @@ func Put(k string, obj Obj, expDurationMs int64) {
 		KeyspaceStat[0] = make(map[string]int)
 	}
 
-	SignalModifiedKey(k)
+	if SignalModifiedKey != nil {
+		SignalModifiedKey(k)
+	}
 
 	KeyspaceStat[0]["keys"]++
 }
@@ -126,13 +120,10 @@ func Get(k string) (Obj, bool) {
 
 func Del(k string) bool {
 
-	if obj, ok := store[k]; ok {
+	if _, ok := store[k]; ok {
 		delete(store, k)
 		delete(expires, k)
 		KeyspaceStat[0]["keys"]--
-
-		mem := obj.Size() + int64(len(k))
-		alloc.Free(make([]byte, 0, mem))
 
 		SignalModifiedKey(k)
 

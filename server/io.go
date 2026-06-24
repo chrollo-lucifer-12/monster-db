@@ -3,7 +3,6 @@ package server
 import (
 	"log"
 
-	"github.com/redis-server/alloc"
 	"golang.org/x/sys/unix"
 )
 
@@ -22,19 +21,12 @@ func ReadQueryFromClient(loop *EventLoop, fd int, clientData interface{}) {
 				newCap = 4096
 			}
 
-			newBuf, err := alloc.Alloc(newCap)
-			if err != nil {
-				log.Println("OOM: Client sent too much data, disconnecting")
-				freeClient(loop, client)
-				return
-			}
+			newBuf := make([]byte, newCap)
 
 			newBuf = newBuf[:len(client.QueryBuf)]
 			copy(newBuf, client.QueryBuf)
 
-			alloc.Free(client.QueryBuf)
-
-			client.QueryBuf = newBuf
+			client.QueryBuf = newBuf[:len(client.QueryBuf)]
 		}
 
 		freeSpace := client.QueryBuf[len(client.QueryBuf):cap(client.QueryBuf)]

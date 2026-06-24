@@ -7,7 +7,6 @@ import (
 	"os/signal"
 	"sync"
 
-	"github.com/redis-server/alloc"
 	"github.com/redis-server/config"
 	"github.com/redis-server/core"
 	"github.com/redis-server/server"
@@ -29,7 +28,6 @@ func main() {
 	var wg sync.WaitGroup
 	wg.Add(2)
 
-	alloc.InitGlobalAllocator(config.Maxmem)
 	core.Init()
 	core.Restoreaof()
 	core.MarkReady = server.MarkReady
