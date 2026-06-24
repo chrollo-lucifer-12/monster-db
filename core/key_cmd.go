@@ -65,7 +65,7 @@ func (IncrCmd) Execute(ctx context.Context, c ClientCommander, args []string) []
 	i, _ := strconv.ParseInt(obj.Value.(string), 10, 64)
 	i++
 	obj.Value = strconv.FormatInt(i, 10)
-
+	store[key] = obj
 	return resp.Encode(i, false)
 }
 

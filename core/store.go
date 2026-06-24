@@ -117,7 +117,10 @@ func Get(k string) (Obj, bool) {
 			return v, false
 		}
 	}
+
 	v.LastAccessedAt = getCurrentClock()
+	store[k] = v
+
 	return v, true
 }
 
