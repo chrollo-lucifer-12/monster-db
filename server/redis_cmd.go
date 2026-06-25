@@ -4,8 +4,11 @@ import (
 	"context"
 
 	"github.com/redis-server/core"
-	"github.com/redis-server/resp"
 )
+
+var errSubscribeOnly = []byte("-ERR only (P)SUBSCRIBE / (P)UNSUBSCRIBE / PING / QUIT allowed in this context\r\n")
+var queued = []byte("+QUEUED\r\n")
+var errUnknownCmd = []byte("-ERR unknown command\r\n")
 
 func removeClient(slice []*Client, target *Client) []*Client {
 	newSlice := make([]*Client, 0, len(slice))
@@ -24,11 +27,11 @@ func respond(cmds core.RedisCmds, client *Client, loop *EventLoop) {
 		if client.HasFlag(core.MULTI_MODE) && cmd.Cmd != "EXEC" && cmd.Cmd != "DISCARD" {
 			if _, ok := core.Lookup(cmd.Cmd); !ok {
 				client.AbortMulti()
-				client.AppendReply([]byte("-ERR unknown command '" + cmd.Cmd + "'\r\n"))
+				client.ReplyBuf = append(client.ReplyBuf, []byte("-ERR unknown command '"+cmd.Cmd+"'\r\n")...)
 				continue
 			}
 			client.QueueCommand(cmd)
-			client.AppendReply([]byte("+QUEUED\r\n"))
+			client.ReplyBuf = append(client.ReplyBuf, queued...)
 			continue
 		}
 
@@ -40,43 +43,37 @@ func respond(cmds core.RedisCmds, client *Client, loop *EventLoop) {
 			cmd.Cmd != "SUBSCRIBE" && cmd.Cmd != "UNSUBSCRIBE" &&
 			cmd.Cmd != "PSUBSCRIBE" && cmd.Cmd != "PUNSUBSCRIBE" &&
 			cmd.Cmd != "PING" && cmd.Cmd != "QUIT" {
-			client.AppendReply([]byte("-ERR only (P)SUBSCRIBE / (P)UNSUBSCRIBE / PING / QUIT allowed in this context\r\n"))
+			client.ReplyBuf = append(client.ReplyBuf, errSubscribeOnly...)
 			continue
 		}
 
-		switch cmd.Cmd {
-		case "REPLCONF":
-			HandleMasterReplConfCommand(client, cmd.Args)
-			continue
-		case "PSYNC":
-			HandleMasterPsyncCommand(loop, client, cmd.Args)
-			continue
-		case "REPLICAOF":
-			HandleReplicaOfCommand(client, cmd.Args)
-			continue
-		}
+		// switch cmd.Cmd {
+		// case "REPLCONF":
+		// 	HandleMasterReplConfCommand(client, cmd.Args)
+		// 	continue
+		// case "PSYNC":
+		// 	HandleMasterPsyncCommand(loop, client, cmd.Args)
+		// 	continue
+		// case "REPLICAOF":
+		// 	HandleReplicaOfCommand(client, cmd.Args)
+		// 	continue
+		// }
 
 		ctx := core.WithClient(context.Background(), client)
 
 		cmdImpl, ok := core.Lookup(cmd.Cmd)
 		if !ok {
-			client.AppendReply([]byte("-ERR unknown command\r\n"))
+			client.ReplyBuf = append(client.ReplyBuf, errUnknownCmd...)
 			continue
 		}
 
-		if isReplicatedCmd(cmd.Cmd) {
-			args := append([]string{cmd.Cmd}, cmd.Args...)
-			HandleInformReplicas(resp.Encode(args, false))
-		}
+		// if isReplicatedCmd(cmd.Cmd) {
+		// 	args := append([]string{cmd.Cmd}, cmd.Args...)
+		// 	//	HandleInformReplicas(resp.Encode(args, false))
+		// }
 
-		reply := cmdImpl.Execute(ctx, client, cmd.Args)
+		cmdImpl.Execute(ctx, client, cmd.Args)
 
-		if reply == nil && client.HasFlag(CLIENT_BLOCKED) {
-			return
-		}
-		if reply != nil {
-			client.AppendReply(reply)
-		}
 	}
 }
 

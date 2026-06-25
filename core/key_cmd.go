@@ -2,11 +2,8 @@ package core
 
 import (
 	"context"
-	"errors"
 	"strconv"
 	"time"
-
-	"github.com/redis-server/resp"
 )
 
 type PingCmd struct{}
@@ -25,76 +22,82 @@ func (TtlCmd) Name() string  { return "TTL" }
 func (ExpCmd) Name() string  { return "EXPIRE" }
 func (IncrCmd) Name() string { return "INCR" }
 
-func (PingCmd) Execute(ctx context.Context, c ClientCommander, args []string) []byte {
-	var b []byte
+func (PingCmd) Execute(ctx context.Context, c ClientCommander, args []string) {
 
 	if len(args) >= 2 {
-		return resp.Encode(errors.New("ERR wrong number of arguments for 'ping' command"), false)
+		c.AppendReply(errWrongArgs("ping"), false)
+		return
 	}
 
 	if len(args) == 0 {
-		b = resp.Encode("PONG", true)
+		c.AppendReply("PONG", true)
 	} else {
-		b = resp.Encode(args[0], false)
+		c.AppendReply(args[0], false)
 	}
 
-	return b
 }
 
-func (IncrCmd) Execute(ctx context.Context, c ClientCommander, args []string) []byte {
+func (IncrCmd) Execute(ctx context.Context, c ClientCommander, args []string) {
 	if len(args) != 1 {
-		return resp.Encode(errors.New("(error) ERR wrong number of arguments for 'incr' command"), false)
+		c.AppendReply(errWrongArgs("incr"), false)
+		return
 	}
 
 	var key string = args[0]
 	obj, exists := Get(key)
 
 	if !exists {
-		obj = NewObj("0", OBJ_TYPE_STRING, OBJ_ENCODING_INT)
+		obj = NewStringObj("0", OBJ_TYPE_STRING, OBJ_ENCODING_INT)
 		Put(key, obj, -1)
 	}
 
 	if err := assertType(obj.TypeEncoding, OBJ_TYPE_STRING); err != nil {
-		return resp.Encode(err, false)
+		c.AppendReply(err, false)
+		return
 	}
 
 	if err := assertEncoding(obj.TypeEncoding, OBJ_ENCODING_INT); err != nil {
-		return resp.Encode(err, false)
+		c.AppendReply(err, false)
+		return
 	}
 
-	i, _ := strconv.ParseInt(obj.Value.(string), 10, 64)
+	i, _ := strconv.ParseInt(obj.StrVal, 10, 64)
 	i++
-	obj.Value = strconv.FormatInt(i, 10)
+	obj.StrVal = strconv.FormatInt(i, 10)
 	store[key] = obj
-	return resp.Encode(i, false)
+	c.AppendReply(i, false)
 }
 
-func (ExpCmd) Execute(ctx context.Context, c ClientCommander, args []string) []byte {
+func (ExpCmd) Execute(ctx context.Context, c ClientCommander, args []string) {
 	if len(args) <= 1 {
-		return resp.Encode(errors.New("(error) ERR wrong number of arguments for 'espire' command"), false)
+		c.AppendReply(errWrongArgs("expire"), false)
+		return
 	}
 
 	var key string = args[0]
 	exDurationSec, err := strconv.ParseInt(args[1], 10, 64)
 
 	if err != nil {
-		return resp.Encode(errors.New("(error) ERR value is not an integer or out of range"), false)
+		c.AppendReply(errInvalidInt(), false)
+		return
 	}
 
 	_, exists := Get(key)
 
 	if !exists {
-		return RESP_ZERO
+		c.AppendReply(RESP_ZERO, true)
+		return
 	}
 
 	setExpiry(key, exDurationSec*1000)
 
-	return RESP_ONE
+	c.AppendReply(RESP_ONE, true)
 }
 
-func (TtlCmd) Execute(ctx context.Context, c ClientCommander, args []string) []byte {
+func (TtlCmd) Execute(ctx context.Context, c ClientCommander, args []string) {
 	if len(args) != 1 {
-		return resp.Encode(errors.New("(error) ERR wrong number of arguments for 'get' command"), false)
+		c.AppendReply(errWrongArgs("ttl"), false)
+		return
 	}
 
 	var key string = args[0]
@@ -102,25 +105,28 @@ func (TtlCmd) Execute(ctx context.Context, c ClientCommander, args []string) []b
 	_, exists := Get(key)
 
 	if !exists {
-		return RESP_MINUS_TWO
+		c.AppendReply(RESP_MINUS_TWO, true)
+		return
 	}
 
 	exp, isExpirySet := getExpiry(key)
 
 	if !isExpirySet {
-		return RESP_MINUS_ONE
+		c.AppendReply(RESP_MINUS_ONE, true)
+		return
 	}
 
 	if uint64(time.Now().UnixMilli()) > exp {
-		return RESP_MINUS_TWO
+		c.AppendReply(RESP_MINUS_TWO, true)
+		return
 	}
 
 	durationMs := exp - uint64(time.Now().UnixMilli())
 
-	return resp.Encode((durationMs / 1000), false)
+	c.AppendReply(int64(durationMs/1000), false)
 }
 
-func (DelCmd) Execute(ctx context.Context, c ClientCommander, args []string) []byte {
+func (DelCmd) Execute(ctx context.Context, c ClientCommander, args []string) {
 	var countDeleted int = 0
 
 	for _, key := range args {
@@ -128,14 +134,14 @@ func (DelCmd) Execute(ctx context.Context, c ClientCommander, args []string) []b
 			countDeleted++
 		}
 	}
-
-	return resp.Encode(countDeleted, false)
+	c.AppendReply(countDeleted, false)
 
 }
 
-func (SetCmd) Execute(ctx context.Context, c ClientCommander, args []string) []byte {
+func (SetCmd) Execute(ctx context.Context, c ClientCommander, args []string) {
 	if len(args) <= 1 {
-		return resp.Encode(errors.New("(error) ERR wrong number of arguments for 'set' command"), false)
+		c.AppendReply(errWrongArgs("set"), false)
+		return
 	}
 
 	var key, value string
@@ -149,27 +155,31 @@ func (SetCmd) Execute(ctx context.Context, c ClientCommander, args []string) []b
 		case "EX", "ex":
 			i++
 			if i == len(args) {
-				return resp.Encode(errors.New("(error) ERR syntax error"), false)
+				c.AppendReply("ERR syntax error", false)
+				return
 			}
 
 			exDurationSec, err := strconv.ParseInt(args[i], 10, 64)
 			if err != nil {
-				return resp.Encode(err, false)
+				c.AppendReply(errInvalidInt(), false)
+				return
 			}
 
 			exDurationsMs = exDurationSec * 1000
 
 		default:
-			return resp.Encode(errors.New("(error) ERR syntax error"), false)
+			c.AppendReply("ERR syntax error", false)
+			return
 		}
 	}
-	Put(key, NewObj(value, oType, oEnc), exDurationsMs)
-	return RESP_OK
+	Put(key, NewStringObj(value, oType, oEnc), exDurationsMs)
+	c.AppendReply("OK", true)
 }
 
-func (GetCmd) Execute(ctx context.Context, c ClientCommander, args []string) []byte {
+func (GetCmd) Execute(ctx context.Context, c ClientCommander, args []string) {
 	if len(args) != 1 {
-		return resp.Encode(errors.New("(error) ERR wrong number of arguments for 'get' command"), false)
+		c.AppendReply(errWrongArgs("get"), false)
+		return
 	}
 
 	var key string = args[0]
@@ -177,12 +187,14 @@ func (GetCmd) Execute(ctx context.Context, c ClientCommander, args []string) []b
 	obj, exists := Get(key)
 
 	if !exists {
-		return RESP_NIL
+		c.AppendReply(nil, false)
+		return
 	}
 
 	if hasExpired(key) {
-		return RESP_NIL
+		c.AppendReply(nil, false)
+		return
 	}
 
-	return resp.Encode(obj.Value, false)
+	c.AppendReply(obj.StrVal, false)
 }

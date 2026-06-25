@@ -1,25 +1,27 @@
 package core
 
-import "unsafe"
-
 type Obj struct {
 	TypeEncoding   uint8
-	Value          interface{}
+	StrVal         string
 	LastAccessedAt uint32
+	IntVal         int64
+	Value          interface{}
 }
 
-func (o *Obj) Size() int64 {
-	size := int64(unsafe.Sizeof(*o))
-
-	switch v := o.Value.(type) {
-	case string:
-		size += int64(len(v))
-
-	case []byte:
-		size += int64(len(v))
+func NewStringObj(value string, oType uint8, oEnc uint8) Obj {
+	return Obj{
+		StrVal:         value,
+		TypeEncoding:   oType | oEnc,
+		LastAccessedAt: getCurrentClock(),
 	}
+}
 
-	return size
+func NewPtrObj(value interface{}, oType uint8, oEnc uint8) Obj {
+	return Obj{
+		Value:          value,
+		TypeEncoding:   oType | oEnc,
+		LastAccessedAt: getCurrentClock(),
+	}
 }
 
 var OBJ_TYPE_STRING uint8 = 0 << 4

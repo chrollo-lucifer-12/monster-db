@@ -2,3 +2,6 @@ bin
 temp.aof
 appendonly.aof
 dump.rdb
+
+
+bin/*

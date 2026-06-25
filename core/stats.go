@@ -1,14 +1,15 @@
 package core
 
 import (
-	"bytes"
 	"context"
-	"errors"
 	"fmt"
 	"strconv"
 	"time"
+)
 
-	"github.com/redis-server/resp"
+var (
+	errWrongArgsSleep  = "ERR wrong number of arguments for 'sleep' command"
+	errInvalidDuration = "ERR value is not an integer or out of range"
 )
 
 type InfoCmd struct{}
@@ -21,40 +22,42 @@ func (ClientCmd) Name() string  { return "CLIENT" }
 func (LatencyCmd) Name() string { return "LATENCY" }
 func (SleepCmd) Name() string   { return "SLEEP" }
 
-func (InfoCmd) Execute(ctx context.Context, c ClientCommander, args []string) []byte {
-	var info []byte
-	buf := bytes.NewBuffer(info)
-	buf.WriteString("# Keyspace\r\n")
+func (InfoCmd) Execute(ctx context.Context, c ClientCommander, args []string) {
+	var buf []byte
+	buf = append(buf, "# Keyspace\r\n"...)
 
 	for i := range KeyspaceStat {
-		buf.WriteString(fmt.Sprintf("db%d:keys=%d,expires=0,avg_ttl=0\r\n", i, KeyspaceStat[i]["keys"]))
+		line := fmt.Sprintf("db%d:keys=%d,expires=0,avg_ttl=0\r\n", i, KeyspaceStat[i]["keys"])
+		buf = append(buf, line...)
 	}
 
-	return resp.Encode(buf.String(), false)
+	c.AppendReply(string(buf), false)
 }
 
-func (ClientCmd) Execute(ctx context.Context, c ClientCommander, args []string) []byte {
-	return RESP_OK
+func (ClientCmd) Execute(ctx context.Context, c ClientCommander, args []string) {
+	c.AppendReply(RESP_OK, true)
 }
 
-func (LatencyCmd) Execute(ctx context.Context, c ClientCommander, args []string) []byte {
-	return resp.Encode([]string{}, false)
+func (LatencyCmd) Execute(ctx context.Context, c ClientCommander, args []string) {
+	c.AppendReply([]string{}, false)
 }
 
-func (SleepCmd) Execute(ctx context.Context, c ClientCommander, args []string) []byte {
+func (SleepCmd) Execute(ctx context.Context, c ClientCommander, args []string) {
 	if len(args) != 1 {
-		return resp.Encode(errors.New("(error) ERR wrong number of arguments for 'sleep' command"), false)
+		c.AppendReply(errWrongArgsSleep, false)
+		return
 	}
 
 	durationSec, err := strconv.ParseInt(args[0], 10, 64)
 
 	if err != nil {
-		return resp.Encode(errors.New("ERR value is not an integer or out of range"), false)
+		c.AppendReply(errInvalidDuration, false)
+		return
 	}
 
 	time.Sleep(time.Duration(durationSec) * time.Second)
 
-	return RESP_OK
+	c.AppendReply(RESP_OK, true)
 }
 
 var KeyspaceStat [4]map[string]int

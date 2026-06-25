@@ -2,10 +2,7 @@ package core
 
 import (
 	"context"
-	"errors"
 	"strconv"
-
-	"github.com/redis-server/resp"
 )
 
 type LLENCmd struct{}
@@ -20,30 +17,29 @@ func (RPUSHCmd) Name() string  { return "RPUSH" }
 func (LRANGECmd) Name() string { return "LRANGE" }
 func (LPOPCmd) Name() string   { return "LPOP" }
 
-func (LLENCmd) Execute(ctx context.Context, c ClientCommander, args []string) []byte {
+func (LLENCmd) Execute(ctx context.Context, c ClientCommander, args []string) {
 	if len(args) != 1 {
-		return resp.Encode(errors.New("(error) ERR wrong number of arguments for 'llen' command"), false)
+		c.AppendReply(errWrongArgs("llen"), false)
 	}
 
 	var key string = args[0]
 	obj, exists := Get(key)
 
 	if !exists {
-		return RESP_ZERO
+		c.AppendReply(RESP_ZERO, true)
 	}
 
 	if err := assertType(obj.TypeEncoding, OBJ_TYPE_LIST); err != nil {
-		return RESP_ZERO
+		c.AppendReply(RESP_ZERO, true)
 	}
 
-	ql := obj.Value.(*Quicklist)
-
-	return resp.Encode(ql.len, false)
+	c.AppendReply(obj.Value.(*Quicklist).len, false)
 }
 
-func (LPUSHCmd) Execute(ctx context.Context, c ClientCommander, args []string) []byte {
+func (LPUSHCmd) Execute(ctx context.Context, c ClientCommander, args []string) {
 	if len(args) < 2 {
-		return resp.Encode(errors.New("ERR wrong number of arguments for 'lpush' command"), false)
+		c.AppendReply(errWrongArgs("lpush"), false)
+		return
 	}
 
 	var key string = args[0]
@@ -57,7 +53,8 @@ func (LPUSHCmd) Execute(ctx context.Context, c ClientCommander, args []string) [
 		Put(key, obj, -1)
 	} else {
 		if err := assertType(obj.TypeEncoding, OBJ_TYPE_LIST); err != nil {
-			return resp.Encode(errors.New("WRONGTYPE Operation against a key holding the wrong kind of value"), false)
+			c.AppendReply(errWrongType(), false)
+			return
 		}
 
 		ql = obj.Value.(*Quicklist)
@@ -78,12 +75,13 @@ func (LPUSHCmd) Execute(ctx context.Context, c ClientCommander, args []string) [
 		MarkReady(key)
 	}
 
-	return resp.Encode(ql.len, false)
+	c.AppendReply(ql.len, false)
 }
 
-func (RPUSHCmd) Execute(ctx context.Context, c ClientCommander, args []string) []byte {
+func (RPUSHCmd) Execute(ctx context.Context, c ClientCommander, args []string) {
 	if len(args) < 2 {
-		return resp.Encode(errors.New("ERR wrong number of arguments for 'lpush' command"), false)
+		c.AppendReply(errWrongArgs("rpush"), false)
+		return
 	}
 
 	var key string = args[0]
@@ -97,7 +95,8 @@ func (RPUSHCmd) Execute(ctx context.Context, c ClientCommander, args []string) [
 		Put(key, obj, -1)
 	} else {
 		if err := assertType(obj.TypeEncoding, OBJ_TYPE_LIST); err != nil {
-			return resp.Encode(errors.New("WRONGTYPE Operation against a key holding the wrong kind of value"), false)
+			c.AppendReply(errWrongType(), false)
+			return
 		}
 
 		ql = obj.Value.(*Quicklist)
@@ -117,13 +116,13 @@ func (RPUSHCmd) Execute(ctx context.Context, c ClientCommander, args []string) [
 	if oldLen == 0 {
 		MarkReady(key)
 	}
-
-	return resp.Encode(ql.len, false)
+	c.AppendReply(ql.len, false)
 }
 
-func (LRANGECmd) Execute(ctx context.Context, c ClientCommander, args []string) []byte {
+func (LRANGECmd) Execute(ctx context.Context, c ClientCommander, args []string) {
 	if len(args) != 3 {
-		return resp.Encode(errors.New("ERR wrong number of arguments for 'lrange' command"), false)
+		c.AppendReply(errWrongArgs("lrange"), false)
+		return
 	}
 
 	var key string = args[0]
@@ -133,19 +132,17 @@ func (LRANGECmd) Execute(ctx context.Context, c ClientCommander, args []string) 
 	obj, exists := Get(key)
 
 	if !exists {
-		return RESP_NIL
+		c.AppendReply(nil, false)
+		return
 	}
 
-	ql := obj.Value.(*Quicklist)
-
-	res := ql.GetElements(start, stop)
-
-	return resp.Encode(res, false)
+	c.AppendReply(obj.Value.(*Quicklist).GetElements(start, stop), false)
 }
 
-func (LPOPCmd) Execute(ctx context.Context, c ClientCommander, args []string) []byte {
+func (LPOPCmd) Execute(ctx context.Context, c ClientCommander, args []string) {
 	if len(args) < 1 {
-		return resp.Encode(errors.New("ERR wrong number of arguments for 'lpop' command"), false)
+		c.AppendReply(errWrongArgs("lpop"), false)
+		return
 	}
 
 	var key string = args[0]
@@ -158,12 +155,8 @@ func (LPOPCmd) Execute(ctx context.Context, c ClientCommander, args []string) []
 	obj, exists := Get(key)
 
 	if !exists {
-		return RESP_NIL
+		c.AppendReply(nil, false)
+		return
 	}
-
-	ql := obj.Value.(*Quicklist)
-
-	res := ql.RemoveElements(count)
-
-	return resp.Encode(res, false)
+	c.AppendReply(obj.Value.(*Quicklist).RemoveElements(count), false)
 }

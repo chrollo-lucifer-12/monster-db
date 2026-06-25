@@ -2,10 +2,7 @@ package core
 
 import (
 	"context"
-	"errors"
 	"strconv"
-
-	"github.com/redis-server/resp"
 )
 
 type BFRESERVECmd struct{}
@@ -16,68 +13,49 @@ func (BFRESERVECmd) Name() string { return "BF.RESERVE" }
 func (BFADDCmd) Name() string     { return "BF.ADD" }
 func (BFEXISTSCmd) Name() string  { return "BF.EXISTS" }
 
-func (BFEXISTSCmd) Execute(ctx context.Context, c ClientCommander, args []string) []byte {
+func (BFEXISTSCmd) Execute(ctx context.Context, c ClientCommander, args []string) {
 	if len(args) != 2 {
-		return resp.Encode(errors.New("ERR wrong number of arguments for 'bfadd' command"), false)
+		c.AppendReply(errWrongArgs("bf.exists"), false)
+		return
 	}
-
-	key := args[0]
-	pat := args[1]
-
-	obj, exists := Get(key)
-
+	obj, exists := Get(args[0])
 	if !exists {
-		return RESP_NIL
+		c.AppendReply(nil, false)
+		return
 	}
-
 	if err := assertType(obj.TypeEncoding, uint8(OBJ_TYPE_BLOOM_FILTERS)); err != nil {
-		return resp.Encode(errors.New("WRONGTYPE Operation against a key holding the wrong kind of value"), false)
+		c.AppendReply(errWrongType(), false)
+		return
 	}
-
-	bl := obj.Value.(*BloomFilter)
-
-	if bl.Exists(pat) {
-		return RESP_ONE
+	if obj.Value.(*BloomFilter).Exists(args[1]) {
+		c.AppendReply(1, false)
+		return
 	}
-
-	return RESP_ZERO
+	c.AppendReply(0, false)
 }
 
-func (BFADDCmd) Execute(ctx context.Context, c ClientCommander, args []string) []byte {
+func (BFADDCmd) Execute(ctx context.Context, c ClientCommander, args []string) {
 	if len(args) != 2 {
-		return resp.Encode(errors.New("ERR wrong number of arguments for 'bfadd' command"), false)
+		c.AppendReply(errWrongArgs("bf.add"), false)
+		return
 	}
-
-	key := args[0]
-	pat := args[1]
-
-	obj, exists := Get(key)
-
+	obj, exists := Get(args[0])
 	if !exists {
-		return RESP_NIL
+		c.AppendReply(nil, false)
+		return
 	}
-
-	bl := obj.Value.(*BloomFilter)
-
-	bl.Add(pat)
-
-	return RESP_ONE
+	obj.Value.(*BloomFilter).Add(args[1])
+	c.AppendReply(1, false)
 }
 
-func (BFRESERVECmd) Execute(ctx context.Context, c ClientCommander, args []string) []byte {
+func (BFRESERVECmd) Execute(ctx context.Context, c ClientCommander, args []string) {
 	if len(args) < 3 {
-		return resp.Encode(errors.New("ERR wrong number of arguments for 'bfreserve' command"), false)
+		c.AppendReply(errWrongArgs("bf.reserve"), false)
+		return
 	}
-
-	key := args[0]
 	errorRate, _ := strconv.ParseFloat(args[1], 32)
 	capacity, _ := strconv.Atoi(args[2])
-
 	bl := NewBloomFilter(capacity, errorRate)
-
-	obj := NewObj(bl, uint8(OBJ_TYPE_BLOOM_FILTERS), OBJ_ENCODING_BOOL_ARR)
-
-	Put(key, obj, -1)
-
-	return RESP_OK
+	Put(args[0], NewObj(bl, uint8(OBJ_TYPE_BLOOM_FILTERS), OBJ_ENCODING_BOOL_ARR), -1)
+	c.AppendReply("OK", true)
 }

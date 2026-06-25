@@ -38,8 +38,8 @@ func (c *Client) SetFlag(flag uint8)      { c.flag |= flag }
 func (c *Client) ClearFlag(flag uint8)    { c.flag &^= flag }
 func (c *Client) HasFlag(flag uint8) bool { return c.flag&flag != 0 }
 
-func (c *Client) AppendReply(b []byte) {
-	c.ReplyBuf = append(c.ReplyBuf, b...)
+func (c *Client) AppendReply(value any, isSimple bool) {
+	c.ReplyBuf = resp.Encode(c.ReplyBuf, value, isSimple)
 }
 
 func (c *Client) ResetMultiState() {
@@ -114,7 +114,7 @@ func (c *Client) Publish(key, message string) int {
 
 	count := 0
 	for _, sub := range subs {
-		sub.ReplyBuf = append(sub.ReplyBuf, resp.Encode([]string{"message", key, message}, false)...)
+		sub.ReplyBuf = resp.Encode(sub.ReplyBuf, []string{"message", key, message}, false)
 		clientsPendingWrite[sub.Fd] = sub
 		count++
 	}
@@ -204,13 +204,12 @@ func processKeys(loop *EventLoop) {
 
 		cmdImpl, _ := core.Lookup("LPOP")
 
-		res := cmdImpl.Execute(ctx, client, []string{key})
+		cmdImpl.Execute(ctx, client, []string{key})
 
 		waitingKeys[key] = waitingClients[1:]
 		client.flag &= ^CLIENT_BLOCKED
 		client.when = time.Time{}
 
-		client.ReplyBuf = append(client.ReplyBuf, res...)
 		clientsPendingWrite[client.Fd] = client
 
 		delete(readyKeys, key)

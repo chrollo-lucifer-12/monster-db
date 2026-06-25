@@ -2,19 +2,26 @@ package core
 
 import (
 	"context"
-	"errors"
 	"strconv"
+)
 
-	"github.com/redis-server/resp"
+var (
+	errWrongArgsSadd      = "ERR wrong number of arguments for 'sadd' command"
+	errWrongArgsScard     = "ERR wrong number of arguments for 'scard' command"
+	errWrongArgsSismember = "ERR wrong number of arguments for 'sismember' command"
+	errWrongArgsSmembers  = "ERR wrong number of arguments for 'smembers' command"
+	errWrongArgsSrem      = "ERR wrong number of arguments for 'srem' command"
+	errNotInteger         = "ERR value is not an integer"
 )
 
 type SaddCmd struct{}
 
 func (SaddCmd) Name() string { return "SADD" }
 
-func (SaddCmd) Execute(ctx context.Context, c ClientCommander, args []string) []byte {
+func (SaddCmd) Execute(ctx context.Context, c ClientCommander, args []string) {
 	if len(args) < 2 {
-		return resp.Encode(errors.New("ERR wrong number of arguments for 'sadd' command"), false)
+		c.AppendReply(errWrongArgsSadd, false)
+		return
 	}
 	key := args[0]
 	obj, exists := Get(key)
@@ -36,101 +43,114 @@ func (SaddCmd) Execute(ctx context.Context, c ClientCommander, args []string) []
 			}
 		}
 	}
-	return resp.Encode(count, false)
+	c.AppendReply(count, false)
 }
 
 type ScardCmd struct{}
 
 func (ScardCmd) Name() string { return "SCARD" }
 
-func (ScardCmd) Execute(ctx context.Context, c ClientCommander, args []string) []byte {
+func (ScardCmd) Execute(ctx context.Context, c ClientCommander, args []string) {
 	if len(args) != 1 {
-		return resp.Encode(errors.New("ERR wrong number of arguments for 'scard' command"), false)
+		c.AppendReply(errWrongArgsScard, false)
+		return
 	}
 	key := args[0]
 	obj, exists := Get(key)
 	if !exists {
-		return RESP_NIL
+		c.AppendReply(nil, false)
+		return
 	}
 	if err := assertType(obj.TypeEncoding, uint8(OBJ_TYPE_SET)); err != nil {
-		return RESP_NIL
+		c.AppendReply(nil, false)
 	}
 	is := obj.Value.(*Intset)
-	return resp.Encode(is.length, false)
+	c.AppendReply(is.length, false)
 }
 
 type SismemberCmd struct{}
 
 func (SismemberCmd) Name() string { return "SISMEMBER" }
 
-func (SismemberCmd) Execute(ctx context.Context, c ClientCommander, args []string) []byte {
+func (SismemberCmd) Execute(ctx context.Context, c ClientCommander, args []string) {
 	if len(args) != 2 {
-		return resp.Encode(errors.New("ERR wrong number of arguments for 'sismember' command"), false)
+		c.AppendReply(errWrongArgsSismember, false)
 	}
 	key := args[0]
 	obj, exsist := Get(key)
 	if !exsist {
-		return RESP_NIL
+		c.AppendReply(nil, false)
+		return
 	}
 	if err := assertType(obj.TypeEncoding, uint8(OBJ_TYPE_SET)); err != nil {
-		return RESP_NIL
+		c.AppendReply(nil, false)
+		return
 	}
 	value, err := strconv.ParseInt(args[1], 10, 16)
 	if err != nil {
-		return RESP_ZERO
+		c.AppendReply(RESP_ZERO, true)
+		return
 	}
 	is := obj.Value.(*Intset)
 	idx := is.search(int16(value))
 	if idx != -1 && is.get(idx) == int16(value) {
-		return RESP_ONE
+		c.AppendReply(RESP_ONE, true)
+		return
 	}
-	return RESP_ZERO
+	c.AppendReply(RESP_ZERO, true)
 }
 
 type SmembersCmd struct{}
 
 func (SmembersCmd) Name() string { return "SMEMBERS" }
 
-func (SmembersCmd) Execute(ctx context.Context, c ClientCommander, args []string) []byte {
+func (SmembersCmd) Execute(ctx context.Context, c ClientCommander, args []string) {
 	if len(args) != 1 {
-		return resp.Encode(errors.New("ERR wrong number of arguments for 'smembers' command"), false)
+		c.AppendReply(errWrongArgsSmembers, false)
+		return
 	}
 	key := args[0]
 	obj, exists := Get(key)
 	if !exists {
-		return RESP_NIL
+		c.AppendReply(nil, false)
+		return
 	}
 	if err := assertType(obj.TypeEncoding, uint8(OBJ_TYPE_SET)); err != nil {
-		return RESP_NIL
+		c.AppendReply(nil, false)
+		return
 	}
 	is := obj.Value.(*Intset)
 	elements := make([]any, 0, is.length)
 	for i := 0; i < int(is.length); i++ {
 		elements = append(elements, is.get(i))
 	}
-	return resp.Encode(elements, false)
+	c.AppendReply(elements, false)
 }
 
 type SremCmd struct{}
 
 func (SremCmd) Name() string { return "SREM" }
 
-func (SremCmd) Execute(ctx context.Context, c ClientCommander, args []string) []byte {
+func (SremCmd) Execute(ctx context.Context, c ClientCommander, args []string) {
 	if len(args) != 2 {
-		return resp.Encode(errors.New("ERR wrong number of arguments for 'srem' command"), false)
+		c.AppendReply(errWrongArgsSrem, false)
+		return
 	}
 	key := args[0]
 	obj, exists := Get(key)
 	if !exists {
-		return RESP_NIL
+		c.AppendReply(nil, false)
+		return
 	}
 	if err := assertType(obj.TypeEncoding, uint8(OBJ_TYPE_SET)); err != nil {
-		return RESP_NIL
+		c.AppendReply(nil, false)
+		return
 	}
 	value, err := strconv.ParseInt(args[1], 10, 16)
 	if err != nil {
-		return resp.Encode(errors.New("ERR value is not an integer"), false)
+		c.AppendReply(errNotInteger, false)
+		return
 	}
 	is := obj.Value.(*Intset)
-	return resp.Encode(is.del(int16(value)), false)
+	c.AppendReply(is.del(int16(value)), false)
 }

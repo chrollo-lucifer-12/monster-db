@@ -68,12 +68,18 @@ func Lookup(name string) (Command, bool) {
 func NewObj(value interface{}, oType uint8, oEnc uint8) Obj {
 
 	obj := Obj{
-		Value:          value,
 		TypeEncoding:   oType | oEnc,
 		LastAccessedAt: getCurrentClock(),
 	}
 
+	switch v := value.(type) {
+	case string:
+		obj.StrVal = v
+	default:
+		obj.Value = v
+	}
 	return obj
+
 }
 
 func Put(k string, obj Obj, expDurationMs int64) {

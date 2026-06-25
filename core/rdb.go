@@ -16,13 +16,12 @@ func EncodeStore() []byte {
 	var buf []byte
 
 	for k, obj := range store {
-		cmd := resp.Encode([]string{
+		resp.Encode(buf, []string{
 			"SET",
 			k,
 			string(obj.Value.([]byte)),
 		}, false)
 
-		buf = append(buf, cmd...)
 	}
 
 	return buf

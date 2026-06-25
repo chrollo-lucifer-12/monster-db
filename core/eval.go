@@ -1,33 +1,32 @@
 package core
 
-import (
-	"errors"
+import "github.com/redis-server/resp"
 
-	"github.com/redis-server/resp"
+var (
+	RESP_NIL       = []byte("$-1\r\n")
+	RESP_OK        = []byte("+OK\r\n")
+	RESP_ZERO      = []byte(":0\r\n")
+	RESP_ONE       = []byte(":1\r\n")
+	RESP_MINUS_ONE = []byte(":-1\r\n")
+	RESP_MINUS_TWO = []byte(":-2\r\n")
+
+	errMsgWrongType  = "WRONGTYPE Operation against a key holding the wrong kind of value"
+	errMsgInvalidInt = "ERR value is not an integer or out of range"
 )
 
-var RESP_NIL []byte = []byte("$-1\r\n")
-var RESP_OK []byte = []byte("+OK\r\n")
-var RESP_ZERO []byte = []byte(":0\r\n")
-var RESP_ONE []byte = []byte(":1\r\n")
-var RESP_MINUS_ONE []byte = []byte(":-1\r\n")
-var RESP_MINUS_TWO []byte = []byte(":-2\r\n")
-var RESP_WRONG_TYPE []byte = []byte("+WRONG_TYPE\r\n")
-
-func errWrongArgs(cmd string) []byte {
-	return resp.Encode(errors.New(
-		"ERR wrong number of arguments for '"+cmd+"' command",
-	), false)
+func errWrongArgs(cmd string) string {
+	return "ERR wrong number of arguments for '" + cmd + "' command"
 }
 
-func errWrongType() []byte {
-	return resp.Encode(errors.New(
-		"WRONGTYPE Operation against a key holding the wrong kind of value",
-	), false)
+func errWrongType() string {
+	return errMsgWrongType
 }
 
-func errInvalidInt() []byte {
-	return resp.Encode(errors.New(
-		"ERR value is not an integer or out of range",
-	), false)
+func errInvalidInt() string {
+	return errMsgInvalidInt
+}
+
+// only used in AOF/writeCommand, keep returning []byte
+func encodeTokens(tokens []string) []byte {
+	return resp.Encode(nil, tokens, false)
 }

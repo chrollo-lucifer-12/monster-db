@@ -11,12 +11,13 @@ type AOFCmd struct{}
 
 func (AOFCmd) Name() string { return "BGREWRITEAOF" }
 
-func (AOFCmd) Execute(ctx context.Context, c ClientCommander, args []string) []byte {
+func (AOFCmd) Execute(ctx context.Context, c ClientCommander, args []string) {
 	r1, _, err1 := syscall.RawSyscall(syscall.SYS_FORK, 0, 0, 0)
 
 	if err1 != 0 {
 		log.Println("Fork failed:", err1)
-		return []byte("-ERR background save failed\r\n")
+		c.AppendReply("Fork failed", false)
+		return
 	}
 
 	if r1 == 0 {
@@ -25,5 +26,5 @@ func (AOFCmd) Execute(ctx context.Context, c ClientCommander, args []string) []b
 	}
 
 	log.Printf("Background save started in child process (PID: %d)\n", r1)
-	return RESP_OK
+	c.AppendReply(RESP_OK, true)
 }

@@ -90,7 +90,7 @@ func RunAsyncServer(wg *sync.WaitGroup) error {
 		return err
 	}
 
-	loop.AddTimeEvent(1000, ReplicationHeartbeatCron, nil)
+	//	loop.AddTimeEvent(1000, ReplicationHeartbeatCron, nil)
 	loop.AddTimeEvent(1000, ServerCronHandler, nil)
 	loop.AddTimeEvent(100, HandleBlockedClients, nil)
 

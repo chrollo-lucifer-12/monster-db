@@ -17,7 +17,7 @@ func (nullClient) SetFlag(flag uint8)      {}
 func (nullClient) ClearFlag(flag uint8)    {}
 func (nullClient) HasFlag(flag uint8) bool { return false }
 
-func (nullClient) AppendReply(b []byte) {}
+func (nullClient) AppendReply(value any, isSimple bool) {}
 
 func (nullClient) ResetMultiState()           {}
 func (nullClient) QueueCommand(cmd *RedisCmd) {}
@@ -43,7 +43,7 @@ func (nullClient) BlockOn(key string, timeoutMs int) {
 var NullClient ClientCommander = nullClient{}
 
 func writeCommand(fp *os.File, tokens []string) {
-	fp.Write(resp.Encode(tokens, false))
+	fp.Write(resp.Encode(nil, tokens, false))
 }
 
 func dumpkey(fp *os.File, k string, obj Obj) {

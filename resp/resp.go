@@ -4,7 +4,10 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"strconv"
 )
+
+var respNil = []byte("*-1\r\n")
 
 var ErrIncomplete = errors.New("incomplete data")
 
@@ -145,78 +148,89 @@ func Decode(data []byte) ([]interface{}, int, error) {
 	return values, index, nil
 }
 
-func encodeString(v string) []byte {
-	return []byte(fmt.Sprintf("$%d\r\n%s\r\n", len(v), v))
+func EncodeString(buf []byte, v string) []byte {
+	var tmp [32]byte
+	n := strconv.AppendInt(tmp[:0], int64(len(v)), 10)
+	buf = append(buf, '$')
+	buf = append(buf, n...)
+	buf = append(buf, '\r', '\n')
+	buf = append(buf, v...)
+	return append(buf, '\r', '\n')
 }
 
-func Encode(value any, isSimple bool) []byte {
+func EncodeInt(buf []byte, v int64) []byte {
+	var tmp [32]byte
+	n := strconv.AppendInt(tmp[:0], v, 10)
+	buf = append(buf, ':')
+	buf = append(buf, n...)
+	return append(buf, '\r', '\n')
+}
+
+func EncodeArrayLen(buf []byte, l int) []byte {
+	var tmp [32]byte
+	n := strconv.AppendInt(tmp[:0], int64(l), 10)
+	buf = append(buf, '*')
+	buf = append(buf, n...)
+	return append(buf, '\r', '\n')
+}
+
+func Encode(buf []byte, value any, isSimple bool) []byte {
 	switch v := value.(type) {
-
 	case nil:
-		return []byte("*-1\r\n")
-
-	case [][]string:
-		var buf bytes.Buffer
-
-		buf.WriteString(fmt.Sprintf("%d\r\n", len(v)))
-
-		for _, row := range v {
-			buf.Write(Encode(row, false))
-		}
-
-		return buf.Bytes()
-
+		return append(buf, "*-1\r\n"...)
+	case []byte:
+		return append(buf, v...)
 	case string:
 		if isSimple {
-			return []byte(fmt.Sprintf("+%s\r\n", v))
+			buf = append(buf, '+')
+			buf = append(buf, v...)
+			return append(buf, '\r', '\n')
 		}
-		return encodeString(v)
+		return EncodeString(buf, v)
 
 	case int:
-		return []byte(fmt.Sprintf(":%d\r\n", v))
-
+		return EncodeInt(buf, int64(v))
 	case int64:
-		return []byte(fmt.Sprintf(":%d\r\n", v))
-
+		return EncodeInt(buf, v)
 	case int32:
-		return []byte(fmt.Sprintf(":%d\r\n", v))
-
+		return EncodeInt(buf, int64(v))
 	case int16:
-		return []byte(fmt.Sprintf(":%d\r\n", v))
-
+		return EncodeInt(buf, int64(v))
 	case int8:
-		return []byte(fmt.Sprintf(":%d\r\n", v))
-
-	case []any:
-		var buf bytes.Buffer
-
-		buf.WriteString(fmt.Sprintf("*%d\r\n", len(v)))
-
-		for _, item := range v {
-			buf.Write(Encode(item, false))
-		}
-
-		return buf.Bytes()
-
-	case []string:
-		var buf bytes.Buffer
-
-		buf.WriteString(fmt.Sprintf("*%d\r\n", len(v)))
-
-		for _, item := range v {
-			buf.Write(Encode(item, false))
-		}
-
-		return buf.Bytes()
+		return EncodeInt(buf, int64(v))
 
 	case error:
-		return []byte(fmt.Sprintf("-%s\r\n", v))
+		buf = append(buf, '-')
+		buf = append(buf, v.Error()...)
+		return append(buf, '\r', '\n')
+
+	case []string:
+		buf = EncodeArrayLen(buf, len(v))
+		for _, item := range v {
+			buf = EncodeString(buf, item)
+		}
+		return buf
+
+	case []any:
+		buf = EncodeArrayLen(buf, len(v))
+		for _, item := range v {
+			buf = Encode(buf, item, false)
+		}
+		return buf
+
+	case [][]string:
+		buf = EncodeArrayLen(buf, len(v))
+		for _, row := range v {
+			buf = EncodeArrayLen(buf, len(row))
+			for _, item := range row {
+				buf = EncodeString(buf, item)
+			}
+		}
+		return buf
 	}
 
-	return []byte(fmt.Sprintf("$%d\r\n%v\r\n",
-		len(fmt.Sprint(value)),
-		value,
-	))
+	s := fmt.Sprint(value)
+	return EncodeString(buf, s)
 }
 
 func EncodeExecArray(results [][]byte) []byte {

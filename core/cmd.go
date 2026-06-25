@@ -18,7 +18,7 @@ type ClientCommander interface {
 	ClearFlag(flag uint8)
 	HasFlag(flag uint8) bool
 
-	AppendReply(b []byte)
+	AppendReply(value any, isSimple bool)
 
 	ResetMultiState()
 	QueueCommand(cmd *RedisCmd)
@@ -41,7 +41,7 @@ type ClientCommander interface {
 }
 
 type Command interface {
-	Execute(ctx context.Context, c ClientCommander, args []string) []byte
+	Execute(ctx context.Context, c ClientCommander, args []string)
 	Name() string
 }
 
