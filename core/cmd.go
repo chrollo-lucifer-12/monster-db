@@ -20,6 +20,10 @@ type ClientCommander interface {
 
 	AppendReply(value any, isSimple bool)
 
+	AppendBytesReply(val []byte)
+
+	AppendIntReply(val int64)
+
 	ResetMultiState()
 	QueueCommand(cmd *RedisCmd)
 	MultiCommands() RedisCmds

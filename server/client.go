@@ -42,6 +42,15 @@ func (c *Client) AppendReply(value any, isSimple bool) {
 	c.ReplyBuf = resp.Encode(c.ReplyBuf, value, isSimple)
 }
 
+func (c *Client) AppendBytesReply(val []byte) {
+	c.ReplyBuf = resp.EncodeStringBytes(c.ReplyBuf, val)
+
+}
+
+func (c *Client) AppendIntReply(val int64) {
+	c.ReplyBuf = resp.EncodeInt(c.ReplyBuf, val)
+}
+
 func (c *Client) ResetMultiState() {
 	c.multistate.cmds = nil
 	c.multistate.aborted = false

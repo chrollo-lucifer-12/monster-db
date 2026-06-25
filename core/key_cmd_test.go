@@ -34,6 +34,10 @@ func (c *benchClient) Publish(key, message string) int    { return 0 }
 func (c *benchClient) WatchKeys(keys []string)            {}
 func (c *benchClient) UnwatchAllKeys()                    {}
 func (c *benchClient) BlockOn(key string, timeoutMs int)  {}
+func (c *benchClient) AppendBytesReply(val []byte)        {}
+func (c *benchClient) AppendIntReply(val int64)           {}
+
+// try sharding
 
 func BenchmarkSetCmdExecute(b *testing.B) {
 

@@ -2,6 +2,7 @@ package core
 
 import (
 	"context"
+	"fmt"
 	"strconv"
 )
 
@@ -27,13 +28,15 @@ func (LLENCmd) Execute(ctx context.Context, c ClientCommander, args []string) {
 
 	if !exists {
 		c.AppendReply(RESP_ZERO, true)
+		return
 	}
 
 	if err := assertType(obj.TypeEncoding, OBJ_TYPE_LIST); err != nil {
 		c.AppendReply(RESP_ZERO, true)
+		return
 	}
 
-	c.AppendReply(obj.Value.(*Quicklist).len, false)
+	c.AppendIntReply(int64(obj.Value.(*Quicklist).len))
 }
 
 func (LPUSHCmd) Execute(ctx context.Context, c ClientCommander, args []string) {
@@ -49,7 +52,7 @@ func (LPUSHCmd) Execute(ctx context.Context, c ClientCommander, args []string) {
 
 	if !exists {
 		ql = NewQuicklist()
-		obj = NewObj(ql, OBJ_TYPE_LIST, OBJ_ENCODING_LISTPACK)
+		obj = NewPtrObj(ql, OBJ_TYPE_LIST, OBJ_ENCODING_LISTPACK)
 		Put(key, obj, -1)
 	} else {
 		if err := assertType(obj.TypeEncoding, OBJ_TYPE_LIST); err != nil {
@@ -58,24 +61,27 @@ func (LPUSHCmd) Execute(ctx context.Context, c ClientCommander, args []string) {
 		}
 
 		ql = obj.Value.(*Quicklist)
+
 	}
 
 	oldLen := ql.len
 
 	for i := 1; i < len(args); i++ {
-		val, err := strconv.Atoi(args[i])
-		if err != nil {
-			ql.addToHead(args[i])
-		} else {
+		if isInt(args[i]) {
+			val, _ := strconv.Atoi(args[i])
 			ql.addToHead(val)
+		} else {
+			ql.addToHead(args[i])
 		}
 	}
 
 	if oldLen == 0 {
-		MarkReady(key)
+		if MarkReady != nil {
+			MarkReady(key)
+		}
 	}
 
-	c.AppendReply(ql.len, false)
+	c.AppendIntReply(int64(ql.len))
 }
 
 func (RPUSHCmd) Execute(ctx context.Context, c ClientCommander, args []string) {
@@ -91,7 +97,7 @@ func (RPUSHCmd) Execute(ctx context.Context, c ClientCommander, args []string) {
 
 	if !exists {
 		ql = NewQuicklist()
-		obj = NewObj(ql, OBJ_TYPE_LIST, OBJ_ENCODING_LISTPACK)
+		obj = NewPtrObj(ql, OBJ_TYPE_LIST, OBJ_ENCODING_LISTPACK)
 		Put(key, obj, -1)
 	} else {
 		if err := assertType(obj.TypeEncoding, OBJ_TYPE_LIST); err != nil {
@@ -102,21 +108,27 @@ func (RPUSHCmd) Execute(ctx context.Context, c ClientCommander, args []string) {
 		ql = obj.Value.(*Quicklist)
 	}
 
+	if ql == nil {
+		fmt.Printf("nil")
+	}
+
 	oldLen := ql.len
 
 	for i := 1; i < len(args); i++ {
-		val, err := strconv.Atoi(args[i])
-		if err != nil {
-			ql.addToTail(args[i])
-		} else {
+		if isInt(args[i]) {
+			val, _ := strconv.Atoi(args[i])
 			ql.addToTail(val)
+		} else {
+			ql.addToTail(args[i])
 		}
 	}
 
 	if oldLen == 0 {
-		MarkReady(key)
+		if MarkReady != nil {
+			MarkReady(key)
+		}
 	}
-	c.AppendReply(ql.len, false)
+	c.AppendIntReply(int64(ql.len))
 }
 
 func (LRANGECmd) Execute(ctx context.Context, c ClientCommander, args []string) {
@@ -135,8 +147,8 @@ func (LRANGECmd) Execute(ctx context.Context, c ClientCommander, args []string) 
 		c.AppendReply(nil, false)
 		return
 	}
-
-	c.AppendReply(obj.Value.(*Quicklist).GetElements(start, stop), false)
+	ql := obj.Value.(*Quicklist)
+	ql.GetElements(start, stop, c)
 }
 
 func (LPOPCmd) Execute(ctx context.Context, c ClientCommander, args []string) {
@@ -158,5 +170,6 @@ func (LPOPCmd) Execute(ctx context.Context, c ClientCommander, args []string) {
 		c.AppendReply(nil, false)
 		return
 	}
-	c.AppendReply(obj.Value.(*Quicklist).RemoveElements(count), false)
+	ql := obj.Value.(*Quicklist)
+	ql.RemoveElements(count, c)
 }

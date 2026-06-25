@@ -36,6 +36,9 @@ func (nullClient) Publish(key, message string) int    { panic("core: PUBLISH dur
 func (nullClient) WatchKeys(keys []string) {}
 func (nullClient) UnwatchAllKeys()         {}
 
+func (nullClient) AppendBytesReply(val []byte) {}
+func (nullClient) AppendIntReply(val int64)    {}
+
 func (nullClient) BlockOn(key string, timeoutMs int) {
 	panic("core: BLPOP blocked during AOF replay")
 }

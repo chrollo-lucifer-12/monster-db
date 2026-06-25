@@ -9,6 +9,8 @@ import (
 
 var respNil = []byte("*-1\r\n")
 
+type ArrayLen int
+
 var ErrIncomplete = errors.New("incomplete data")
 
 func readSimpleString(data []byte) (string, int, error) {
@@ -174,12 +176,20 @@ func EncodeArrayLen(buf []byte, l int) []byte {
 	return append(buf, '\r', '\n')
 }
 
+func EncodeStringBytes(buf, v []byte) []byte {
+	buf = append(buf, '$')
+	buf = strconv.AppendInt(buf, int64(len(v)), 10)
+	buf = append(buf, '\r', '\n')
+	buf = append(buf, v...)
+	return append(buf, '\r', '\n')
+}
+
 func Encode(buf []byte, value any, isSimple bool) []byte {
 	switch v := value.(type) {
 	case nil:
 		return append(buf, "*-1\r\n"...)
 	case []byte:
-		return append(buf, v...)
+		return EncodeStringBytes(buf, v)
 	case string:
 		if isSimple {
 			buf = append(buf, '+')
@@ -187,6 +197,9 @@ func Encode(buf []byte, value any, isSimple bool) []byte {
 			return append(buf, '\r', '\n')
 		}
 		return EncodeString(buf, v)
+
+	case ArrayLen:
+		return EncodeArrayLen(buf, int(v))
 
 	case int:
 		return EncodeInt(buf, int64(v))
