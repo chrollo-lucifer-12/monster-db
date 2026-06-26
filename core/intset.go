@@ -14,7 +14,7 @@ type Intset struct {
 func NewIntset() *Intset {
 	return &Intset{
 		length: 0,
-		data:   []byte{},
+		data:   make([]byte, 0, 64),
 	}
 }
 
@@ -48,7 +48,7 @@ func (is *Intset) set(val int16) bool {
 
 	insertAt := (idx + 1) * 2
 
-	is.data = append(is.data, make([]byte, 2)...)
+	is.data = append(is.data, 0, 0)
 
 	copy(is.data[insertAt+2:], is.data[insertAt:])
 
@@ -60,8 +60,13 @@ func (is *Intset) set(val int16) bool {
 }
 
 func (is *Intset) get(idx int) int16 {
-	offset := idx * 2
-	return int16(binary.LittleEndian.Uint16(is.data[offset:]))
+	offset := idx << 1
+	b := is.data
+
+	v0 := b[offset]
+	v1 := b[offset+1]
+
+	return int16(uint16(v0) | uint16(v1)<<8)
 }
 
 func (is *Intset) del(val int16) int {

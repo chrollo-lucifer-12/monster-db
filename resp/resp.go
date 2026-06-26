@@ -151,13 +151,40 @@ func Decode(data []byte) ([]interface{}, int, error) {
 }
 
 func EncodeString(buf []byte, v string) []byte {
-	var tmp [32]byte
-	n := strconv.AppendInt(tmp[:0], int64(len(v)), 10)
+	n := len(v)
+
+	
+	var tmp [20]byte
+	i := len(tmp)
+
+	x := n
+	if x == 0 {
+		i--
+		tmp[i] = '0'
+	} else {
+		for x > 0 {
+			i--
+			tmp[i] = byte('0' + x%10)
+			x /= 10
+		}
+	}
+
+	needed := 1 + (len(tmp) - i) + 2 + n + 2
+
+	if cap(buf)-len(buf) < needed {
+		newCap := cap(buf)*2 + needed
+		newBuf := make([]byte, len(buf), newCap)
+		copy(newBuf, buf)
+		buf = newBuf
+	}
+
 	buf = append(buf, '$')
-	buf = append(buf, n...)
+	buf = append(buf, tmp[i:]...)
 	buf = append(buf, '\r', '\n')
 	buf = append(buf, v...)
-	return append(buf, '\r', '\n')
+	buf = append(buf, '\r', '\n')
+
+	return buf
 }
 
 func EncodeInt(buf []byte, v int64) []byte {
