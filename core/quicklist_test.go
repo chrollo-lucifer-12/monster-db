@@ -47,7 +47,6 @@ func BenchmarkLRANGECmdExecute(b *testing.B) {
 	store = make(map[string]Obj, 1)
 	config.KeyLimit = math.MaxInt
 
-	// pre-populate a list with 1000 elements
 	pushCmd := RPUSHCmd{}
 	ctx := context.Background()
 	client := &benchClient{buf: make([]byte, 0, 4096)}
@@ -56,7 +55,7 @@ func BenchmarkLRANGECmdExecute(b *testing.B) {
 	}
 
 	cmd := LRANGECmd{}
-	args := []string{"mylist", "0", "99"} // range of 100 elements
+	args := []string{"mylist", "0", "99"}
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -80,7 +79,7 @@ func BenchmarkLPOPCmdExecute(b *testing.B) {
 	args := []string{"mylist"}
 
 	b.ResetTimer()
-	for i := 0; i < 10; i++ {
+	for i := 0; i < b.N; i++ {
 		client.buf = client.buf[:0]
 		cmd.Execute(ctx, client, args)
 	}

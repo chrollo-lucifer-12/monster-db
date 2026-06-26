@@ -100,60 +100,96 @@ func (ql *Quicklist) addToHead(val any) {
 }
 
 func (ql *Quicklist) RemoveElements(count int, c ClientCommander) {
-	if ql.head == nil || ql.len == 0 {
+	if ql.head == nil || ql.len == 0 || count <= 0 {
 		c.AppendReply(nil, false)
 		return
 	}
 
+	if count > ql.len {
+		count = ql.len
+	}
+
 	c.AppendReply(resp.ArrayLen(count), false)
+
 	removed := 0
-	for node := ql.head; node != nil && removed < count; node = node.next {
+	node := ql.head
+
+	for node != nil && removed < count {
 		lp := node.lp
+		next := node.next
+
+		removeStart := headerSize
+		totalSize := 0
+		removedInNode := 0
+
 		pos := headerSize
-		for pos < len(lp.data) && lp.data[pos] != endByte && removed < count {
+
+		for pos < len(lp.data) &&
+			lp.data[pos] != endByte &&
+			removed < count {
+
 			t := lp.data[pos]
 
 			var size int
 
-			if t == TYPE_STRING {
+			switch t {
+			case TYPE_STRING:
 				val, s := lp.decodeAtString(pos)
-
 				if s <= 0 {
 					return
 				}
-				size = s
-				// if val == "" {
-				// 	break
-				// }
 
+				size = s
 				c.AppendBytesReply(val)
 
-			} else if t == TYPE_INT {
+			case TYPE_INT:
 				val, s := lp.decodeAtInt(pos)
-
 				if s <= 0 {
 					return
 				}
-				size = s
-				// if val == "" {
-				// 	break
-				// }
 
+				size = s
 				c.AppendIntReply(val)
 
+			default:
+				return
 			}
 
-			lp.remove(headerSize, size)
-			ql.len--
+			totalSize += size
+			pos += size
+
 			removed++
+			removedInNode++
+		}
+
+		if totalSize > 0 {
+			lp.remove(removeStart, totalSize)
+
+			lp.setElements(lp.elements() - removedInNode)
+			lp.setTotalLen(len(lp.data))
+
+			ql.len -= removedInNode
 		}
 
 		if lp.IsEmpty() {
-			ql.head = ql.head.next
-			if ql.head != nil {
-				ql.head.prev = nil
+			if node.prev != nil {
+				node.prev.next = next
+			} else {
+				ql.head = next
+			}
+
+			if next != nil {
+				next.prev = node.prev
+			} else {
+				ql.tail = node.prev
 			}
 		}
+
+		node = next
+	}
+
+	if ql.head == nil {
+		ql.tail = nil
 	}
 }
 
@@ -183,9 +219,6 @@ func (ql *Quicklist) GetElements(start, stop int, c ClientCommander) {
 					return
 				}
 				size = s
-				// if val == "" {
-				// 	break
-				// }
 
 				if index >= start && index <= stop {
 					c.AppendBytesReply(val)
@@ -197,9 +230,6 @@ func (ql *Quicklist) GetElements(start, stop int, c ClientCommander) {
 					return
 				}
 				size = s
-				// if val == "" {
-				// 	break
-				// }
 
 				if index >= start && index <= stop {
 					c.AppendIntReply(val)

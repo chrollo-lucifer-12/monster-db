@@ -113,8 +113,6 @@ func (lp *Listpack) remove(pos int, length int) {
 	copy(lp.data[pos:], lp.data[pos+length:oldLen])
 
 	lp.data = lp.data[:oldLen-length]
-
-	lp.setMeta(-1)
 }
 
 func (lp *Listpack) grow(pos, addLen int) {
