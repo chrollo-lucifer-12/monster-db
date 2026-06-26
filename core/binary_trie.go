@@ -4,14 +4,14 @@ type TrieNode struct {
 	zero *TrieNode
 	one  *TrieNode
 
-	members []GeoEntry
+	members []string
 }
 
 func NewTrieNode(zero *TrieNode, one *TrieNode) *TrieNode {
 	return &TrieNode{
 		zero:    zero,
 		one:     one,
-		members: make([]GeoEntry, 0),
+		members: make([]string, 0),
 	}
 }
 
@@ -25,7 +25,7 @@ func NewTrie() *Trie {
 	}
 }
 
-func (t *Trie) search(bits []int) []GeoEntry {
+func (t *Trie) search(bits []uint64) []string {
 	curr := t.root
 
 	for _, b := range bits {
@@ -45,7 +45,7 @@ func (t *Trie) search(bits []int) []GeoEntry {
 	return curr.members
 }
 
-func (t *Trie) insert(entry GeoEntry, bits []int) {
+func (t *Trie) insert(entry GeoEntry, bits []uint64) {
 	curr := t.root
 
 	for _, b := range bits {
@@ -62,5 +62,5 @@ func (t *Trie) insert(entry GeoEntry, bits []int) {
 		}
 	}
 
-	curr.members = append(curr.members, entry)
+	curr.members = append(curr.members, entry.Member)
 }

@@ -2,7 +2,6 @@ package core
 
 import (
 	"strconv"
-	"strings"
 )
 
 type GeoEntry struct {
@@ -33,15 +32,9 @@ func NewGeoSpatial() *GeoSpatial {
 func (g *GeoSpatial) Search(lat, lon float64) []string {
 	bits := geoHash(lat, lon, 20)
 
-	var res []string
-
 	members := g.trie.search(bits)
 
-	for _, member := range members {
-		res = append(res, member.Member)
-	}
-
-	return res
+	return members
 }
 
 func (g *GeoSpatial) Insert(member string, lat, lon float64) {
@@ -75,49 +68,58 @@ func (g *GeoSpatial) GeoHash(members []string) []string {
 	return res
 }
 
-func bitsToString(bits []int) string {
-	var sb strings.Builder
-	for _, b := range bits {
-		if b == 0 {
-			sb.WriteByte('0')
+func bitsToString(bits []uint64) string {
+	n := len(bits)
+	b := make([]byte, 0, n)
+
+	for _, v := range bits {
+		if v == 0 {
+			b = append(b, '0')
 		} else {
-			sb.WriteByte('1')
+			b = append(b, '1')
 		}
 	}
-	return sb.String()
+
+	return string(b)
 }
 
-func geoHash(lat, lon float64, bits int) []int {
-	latRange := []float64{-90, 90}
-	lonRange := []float64{-180, 180}
+func geoHash(lat, lon float64, bits int) []uint64 {
+	latRange := [2]float64{-90, 90}
+	lonRange := [2]float64{-180, 180}
 
-	res := make([]int, 0, bits)
+	out := make([]uint64, (bits+63)/64)
+
 	isLon := true
 
 	for i := 0; i < bits; i++ {
+		var bit uint64
+
 		if isLon {
 			mid := (lonRange[0] + lonRange[1]) / 2
-
 			if lon > mid {
-				res = append(res, 1)
+				bit = 1
 				lonRange[0] = mid
 			} else {
-				res = append(res, 0)
+				bit = 0
 				lonRange[1] = mid
 			}
 		} else {
 			mid := (latRange[0] + latRange[1]) / 2
 			if lat > mid {
-				res = append(res, 1)
+				bit = 1
 				latRange[0] = mid
 			} else {
-				res = append(res, 0)
+				bit = 0
 				latRange[1] = mid
 			}
 		}
 
+		word := i / 64
+		offset := 63 - (i % 64)
+
+		out[word] |= bit << offset
 		isLon = !isLon
 	}
 
-	return res
+	return out
 }
