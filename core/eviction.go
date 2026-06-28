@@ -57,6 +57,21 @@ func evictAllkeysLRU() {
 	}
 }
 
+func evictAllKeysLFU() {
+
+	populateEvictionPool()
+
+	evictCount := int16(config.EvictionRatio * float64(config.KeyLimit))
+
+	for i := 0; i < int(evictCount) && len(ePool.pool) > 0; i++ {
+		item := ePool.Pop()
+		if item == nil {
+			return
+		}
+		Del(item.key)
+	}
+}
+
 func evict() {
 
 	evictAllkeysLRU()

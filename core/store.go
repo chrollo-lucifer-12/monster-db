@@ -88,7 +88,7 @@ func Put(k string, obj Obj, expDurationMs int64) {
 		evict()
 	}
 
-	obj.LastAccessedAt = getCurrentClock()
+	touch(k, obj)
 	store[k] = obj
 
 	if expDurationMs > 0 {
@@ -118,7 +118,7 @@ func Get(k string) (Obj, bool) {
 		}
 	}
 
-	v.LastAccessedAt = getCurrentClock()
+	touch(k, v)
 	store[k] = v
 
 	return v, true
