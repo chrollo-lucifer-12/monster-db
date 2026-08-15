@@ -26,7 +26,7 @@ func (MultiCmd) Name() string { return "MULTI" }
 func (MultiCmd) Execute(ctx context.Context, c ClientCommander, args []string) {
 	c.SetFlag(MULTI_MODE)
 	c.ResetMultiState()
-	c.AppendReply(respOKSimple, true)
+	c.AppendBytesReply(respOKSimple)
 }
 
 type ExecCmd struct{}
@@ -35,7 +35,7 @@ func (ExecCmd) Name() string { return "EXEC" }
 
 func (ExecCmd) Execute(ctx context.Context, c ClientCommander, args []string) {
 	if !c.HasFlag(MULTI_MODE) {
-		c.AppendReply(errExecWithoutMulti, false)
+		c.AppendError(errExecWithoutMulti)
 		return
 	}
 
@@ -44,22 +44,22 @@ func (ExecCmd) Execute(ctx context.Context, c ClientCommander, args []string) {
 		c.ResetMultiState()
 		c.ClearFlag(MULTI_MODE)
 		c.ClearFlag(CLIENT_CAS)
-		c.AppendReply(nil, false)
+		c.AppendNull()
 		return
 	}
 
 	queued := c.MultiCommands()
 	if len(queued) == 0 {
 		c.ClearFlag(MULTI_MODE)
-		c.AppendReply(respEmptyArray, true)
+		c.AppendBytesReply(respEmptyArray)
 		return
 	}
-	c.AppendReply(len(queued), true)
+	c.AppendIntReply(int64(len(queued)))
 
 	for _, qcmd := range queued {
 		cmd, ok := Lookup(qcmd.Cmd)
 		if !ok {
-			c.AppendReply("-ERR unknown command '"+qcmd.Cmd+"'", false)
+			c.AppendError("-ERR unknown command '" + qcmd.Cmd + "'")
 			continue
 		}
 		cmd.Execute(ctx, c, qcmd.Args)
@@ -77,13 +77,13 @@ func (DiscardCmd) Name() string { return "DISCARD" }
 
 func (DiscardCmd) Execute(ctx context.Context, c ClientCommander, args []string) {
 	if !c.HasFlag(MULTI_MODE) {
-		c.AppendReply(errDiscardWithoutMulti, false)
+		c.AppendError(errDiscardWithoutMulti)
 		return
 	}
 	c.ResetMultiState()
 	c.ClearFlag(MULTI_MODE)
 	c.UnwatchAllKeys()
-	c.AppendReply(respOKSimple, true)
+	c.AppendBytesReply(respOKSimple)
 }
 
 type WatchCmd struct{}
@@ -92,9 +92,9 @@ func (WatchCmd) Name() string { return "WATCH" }
 
 func (WatchCmd) Execute(ctx context.Context, c ClientCommander, args []string) {
 	if c.HasFlag(MULTI_MODE) {
-		c.AppendReply(errWatchInsideMulti, false)
+		c.AppendError(errWatchInsideMulti)
 		return
 	}
 	c.WatchKeys(args)
-	c.AppendReply(RESP_OK, true)
+	c.AppendBytesReply(RESP_OK)
 }

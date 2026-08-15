@@ -20,19 +20,19 @@ func (LPOPCmd) Name() string   { return "LPOP" }
 
 func (LLENCmd) Execute(ctx context.Context, c ClientCommander, args []string) {
 	if len(args) != 1 {
-		c.AppendReply(errWrongArgs("llen"), false)
+		c.AppendError(errWrongArgs("llen"))
 	}
 
 	var key string = args[0]
 	obj, exists := Get(key)
 
 	if !exists {
-		c.AppendReply(RESP_ZERO, true)
+		c.AppendBytesReply(RESP_ZERO)
 		return
 	}
 
 	if err := assertType(obj.TypeEncoding, OBJ_TYPE_LIST); err != nil {
-		c.AppendReply(RESP_ZERO, true)
+		c.AppendBytesReply(RESP_ZERO)
 		return
 	}
 
@@ -41,7 +41,7 @@ func (LLENCmd) Execute(ctx context.Context, c ClientCommander, args []string) {
 
 func (LPUSHCmd) Execute(ctx context.Context, c ClientCommander, args []string) {
 	if len(args) < 2 {
-		c.AppendReply(errWrongArgs("lpush"), false)
+		c.AppendError(errWrongArgs("lpush"))
 		return
 	}
 
@@ -56,7 +56,7 @@ func (LPUSHCmd) Execute(ctx context.Context, c ClientCommander, args []string) {
 		Put(key, obj, -1)
 	} else {
 		if err := assertType(obj.TypeEncoding, OBJ_TYPE_LIST); err != nil {
-			c.AppendReply(errWrongType(), false)
+			c.AppendError(errWrongType())
 			return
 		}
 
@@ -86,7 +86,7 @@ func (LPUSHCmd) Execute(ctx context.Context, c ClientCommander, args []string) {
 
 func (RPUSHCmd) Execute(ctx context.Context, c ClientCommander, args []string) {
 	if len(args) < 2 {
-		c.AppendReply(errWrongArgs("rpush"), false)
+		c.AppendError(errWrongArgs("rpush"))
 		return
 	}
 
@@ -101,7 +101,7 @@ func (RPUSHCmd) Execute(ctx context.Context, c ClientCommander, args []string) {
 		Put(key, obj, -1)
 	} else {
 		if err := assertType(obj.TypeEncoding, OBJ_TYPE_LIST); err != nil {
-			c.AppendReply(errWrongType(), false)
+			c.AppendError(errWrongType())
 			return
 		}
 
@@ -133,7 +133,7 @@ func (RPUSHCmd) Execute(ctx context.Context, c ClientCommander, args []string) {
 
 func (LRANGECmd) Execute(ctx context.Context, c ClientCommander, args []string) {
 	if len(args) != 3 {
-		c.AppendReply(errWrongArgs("lrange"), false)
+		c.AppendError(errWrongArgs("lrange"))
 		return
 	}
 
@@ -144,7 +144,7 @@ func (LRANGECmd) Execute(ctx context.Context, c ClientCommander, args []string) 
 	obj, exists := Get(key)
 
 	if !exists {
-		c.AppendReply(nil, false)
+		c.AppendNull()
 		return
 	}
 	ql := obj.Value.(*Quicklist)
@@ -153,7 +153,7 @@ func (LRANGECmd) Execute(ctx context.Context, c ClientCommander, args []string) 
 
 func (LPOPCmd) Execute(ctx context.Context, c ClientCommander, args []string) {
 	if len(args) < 1 {
-		c.AppendReply(errWrongArgs("lpop"), false)
+		c.AppendError(errWrongArgs("lpop"))
 		return
 	}
 
@@ -167,7 +167,7 @@ func (LPOPCmd) Execute(ctx context.Context, c ClientCommander, args []string) {
 	obj, exists := Get(key)
 
 	if !exists {
-		c.AppendReply(nil, false)
+		c.AppendNull()
 		return
 	}
 	ql := obj.Value.(*Quicklist)

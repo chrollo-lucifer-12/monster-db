@@ -31,33 +31,33 @@ func (InfoCmd) Execute(ctx context.Context, c ClientCommander, args []string) {
 		buf = append(buf, line...)
 	}
 
-	c.AppendReply(string(buf), false)
+	c.AppendBytesReply(buf)
 }
 
 func (ClientCmd) Execute(ctx context.Context, c ClientCommander, args []string) {
-	c.AppendReply(RESP_OK, true)
+	c.AppendSimpleString("RESP_OK")
 }
 
 func (LatencyCmd) Execute(ctx context.Context, c ClientCommander, args []string) {
-	c.AppendReply([]string{}, false)
+	c.AppendStrArray([]string{})
 }
 
 func (SleepCmd) Execute(ctx context.Context, c ClientCommander, args []string) {
 	if len(args) != 1 {
-		c.AppendReply(errWrongArgsSleep, false)
+		c.AppendError(errWrongArgsSleep)
 		return
 	}
 
 	durationSec, err := strconv.ParseInt(args[0], 10, 64)
 
 	if err != nil {
-		c.AppendReply(errInvalidDuration, false)
+		c.AppendError(errInvalidDuration)
 		return
 	}
 
 	time.Sleep(time.Duration(durationSec) * time.Second)
 
-	c.AppendReply(RESP_OK, true)
+	c.AppendSimpleString("RESP_OK")
 }
 
 var KeyspaceStat [4]map[string]int

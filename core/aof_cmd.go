@@ -16,7 +16,7 @@ func (AOFCmd) Execute(ctx context.Context, c ClientCommander, args []string) {
 
 	if err1 != 0 {
 		log.Println("Fork failed:", err1)
-		c.AppendReply("Fork failed", false)
+		c.AppendError("fork failes")
 		return
 	}
 
@@ -26,5 +26,5 @@ func (AOFCmd) Execute(ctx context.Context, c ClientCommander, args []string) {
 	}
 
 	log.Printf("Background save started in child process (PID: %d)\n", r1)
-	c.AppendReply(RESP_OK, true)
+	c.AppendSimpleString("RESP_OK")
 }

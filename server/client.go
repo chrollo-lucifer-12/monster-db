@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"log"
+	"strconv"
 	"time"
 
 	"github.com/redis-server/core"
@@ -38,13 +39,67 @@ func (c *Client) SetFlag(flag uint8)      { c.flag |= flag }
 func (c *Client) ClearFlag(flag uint8)    { c.flag &^= flag }
 func (c *Client) HasFlag(flag uint8) bool { return c.flag&flag != 0 }
 
-func (c *Client) AppendReply(value any, isSimple bool) {
-	c.ReplyBuf = resp.Encode(c.ReplyBuf, value, isSimple)
-}
-
 func (c *Client) AppendBytesReply(val []byte) {
 	c.ReplyBuf = resp.EncodeStringBytes(c.ReplyBuf, val)
+}
 
+func (c *Client) AppendArrayLen(len int) {
+	c.ReplyBuf = resp.EncodeArrayLen(c.ReplyBuf, len)
+}
+
+func (c *Client) AppendIntArray(v []int64) {
+	c.ReplyBuf = resp.EncodeArrayLen(c.ReplyBuf, len(v))
+
+	for _, item := range v {
+		c.ReplyBuf = resp.EncodeInt(c.ReplyBuf, item)
+	}
+}
+
+func (c *Client) AppendSimpleString(val string) {
+	c.ReplyBuf = resp.EncodeSimpleString(c.ReplyBuf, val)
+}
+
+func (c *Client) AppendBulkString(val string) {
+	c.ReplyBuf = append(c.ReplyBuf, '$')
+	c.ReplyBuf = strconv.AppendInt(c.ReplyBuf, int64(len(val)), 10)
+	c.ReplyBuf = append(c.ReplyBuf, '\r', '\n')
+	c.ReplyBuf = append(c.ReplyBuf, val...)
+	c.ReplyBuf = append(c.ReplyBuf, '\r', '\n')
+}
+
+func (c *Client) AppendStrArray(v []string) {
+	c.ReplyBuf = resp.EncodeArrayLen(c.ReplyBuf, len(v))
+
+	for _, item := range v {
+		c.ReplyBuf = resp.EncodeString(c.ReplyBuf, item)
+	}
+}
+
+func (c *Client) AppendStringArrayArray(v [][]string) {
+	c.ReplyBuf = resp.EncodeArrayLen(c.ReplyBuf, len(v))
+
+	for _, arr := range v {
+		if arr == nil {
+			c.ReplyBuf = append(c.ReplyBuf, '$', '-', '1', '\r', '\n')
+			continue
+		}
+
+		c.AppendStrArray(arr)
+	}
+}
+
+func (c *Client) AppendFloat(val float64) {
+	c.ReplyBuf = strconv.AppendFloat(c.ReplyBuf, val, 'g', -1, 64)
+}
+
+func (c *Client) AppendNull() {
+	c.ReplyBuf = append(c.ReplyBuf, "$-1\r\n"...)
+}
+
+func (c *Client) AppendError(err string) {
+	c.ReplyBuf = append(c.ReplyBuf, '-')
+	c.ReplyBuf = append(c.ReplyBuf, err...)
+	c.ReplyBuf = append(c.ReplyBuf, '\r', '\n')
 }
 
 func (c *Client) AppendIntReply(val int64) {
@@ -123,7 +178,7 @@ func (c *Client) Publish(key, message string) int {
 
 	count := 0
 	for _, sub := range subs {
-		sub.ReplyBuf = resp.Encode(sub.ReplyBuf, []string{"message", key, message}, false)
+		sub.AppendStrArray([]string{"message", key, message})
 		clientsPendingWrite[sub.Fd] = sub
 		count++
 	}

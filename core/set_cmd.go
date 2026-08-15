@@ -20,7 +20,7 @@ func (SaddCmd) Name() string { return "SADD" }
 
 func (SaddCmd) Execute(ctx context.Context, c ClientCommander, args []string) {
 	if len(args) < 2 {
-		c.AppendReply(errWrongArgsSadd, false)
+		c.AppendError(errWrongArgsSadd)
 		return
 	}
 	key := args[0]
@@ -43,7 +43,7 @@ func (SaddCmd) Execute(ctx context.Context, c ClientCommander, args []string) {
 			}
 		}
 	}
-	c.AppendReply(count, false)
+	c.AppendIntReply(int64(count))
 }
 
 type ScardCmd struct{}
@@ -52,20 +52,20 @@ func (ScardCmd) Name() string { return "SCARD" }
 
 func (ScardCmd) Execute(ctx context.Context, c ClientCommander, args []string) {
 	if len(args) != 1 {
-		c.AppendReply(errWrongArgsScard, false)
+		c.AppendError(errWrongArgsScard)
 		return
 	}
 	key := args[0]
 	obj, exists := Get(key)
 	if !exists {
-		c.AppendReply(nil, false)
+		c.AppendNull()
 		return
 	}
 	if err := assertType(obj.TypeEncoding, uint8(OBJ_TYPE_SET)); err != nil {
-		c.AppendReply(nil, false)
+		c.AppendNull()
 	}
 	is := obj.Value.(*Intset)
-	c.AppendReply(is.length, false)
+	c.AppendIntReply(int64(is.length))
 }
 
 type SismemberCmd struct{}
@@ -74,30 +74,30 @@ func (SismemberCmd) Name() string { return "SISMEMBER" }
 
 func (SismemberCmd) Execute(ctx context.Context, c ClientCommander, args []string) {
 	if len(args) != 2 {
-		c.AppendReply(errWrongArgsSismember, false)
+		c.AppendError(errWrongArgsSismember)
 	}
 	key := args[0]
 	obj, exsist := Get(key)
 	if !exsist {
-		c.AppendReply(nil, false)
+		c.AppendNull()
 		return
 	}
 	if err := assertType(obj.TypeEncoding, uint8(OBJ_TYPE_SET)); err != nil {
-		c.AppendReply(nil, false)
+		c.AppendNull()
 		return
 	}
 	value, err := strconv.ParseInt(args[1], 10, 16)
 	if err != nil {
-		c.AppendReply(RESP_ZERO, true)
+		c.AppendBytesReply(RESP_ZERO)
 		return
 	}
 	is := obj.Value.(*Intset)
 	idx := is.search(int16(value))
 	if idx != -1 && is.get(idx) == int16(value) {
-		c.AppendReply(RESP_ONE, true)
+		c.AppendBytesReply(RESP_ONE)
 		return
 	}
-	c.AppendReply(RESP_ZERO, true)
+	c.AppendBytesReply(RESP_ZERO)
 }
 
 type SmembersCmd struct{}
@@ -106,25 +106,26 @@ func (SmembersCmd) Name() string { return "SMEMBERS" }
 
 func (SmembersCmd) Execute(ctx context.Context, c ClientCommander, args []string) {
 	if len(args) != 1 {
-		c.AppendReply(errWrongArgsSmembers, false)
+		c.AppendError(errWrongArgsSmembers)
 		return
 	}
 	key := args[0]
 	obj, exists := Get(key)
 	if !exists {
-		c.AppendReply(nil, false)
+		c.AppendNull()
 		return
 	}
 	if err := assertType(obj.TypeEncoding, uint8(OBJ_TYPE_SET)); err != nil {
-		c.AppendReply(nil, false)
+		c.AppendNull()
 		return
 	}
 	is := obj.Value.(*Intset)
-	elements := make([]any, 0, is.length)
+	elements := make([]int64, 0, is.length)
 	for i := 0; i < int(is.length); i++ {
-		elements = append(elements, is.get(i))
+		elements = append(elements, int64(is.get(i)))
 	}
-	c.AppendReply(elements, false)
+
+	c.AppendIntArray(elements)
 }
 
 type SremCmd struct{}
@@ -133,24 +134,24 @@ func (SremCmd) Name() string { return "SREM" }
 
 func (SremCmd) Execute(ctx context.Context, c ClientCommander, args []string) {
 	if len(args) != 2 {
-		c.AppendReply(errWrongArgsSrem, false)
+		c.AppendError(errWrongArgsSrem)
 		return
 	}
 	key := args[0]
 	obj, exists := Get(key)
 	if !exists {
-		c.AppendReply(nil, false)
+		c.AppendNull()
 		return
 	}
 	if err := assertType(obj.TypeEncoding, uint8(OBJ_TYPE_SET)); err != nil {
-		c.AppendReply(nil, false)
+		c.AppendNull()
 		return
 	}
 	value, err := strconv.ParseInt(args[1], 10, 16)
 	if err != nil {
-		c.AppendReply(errNotInteger, false)
+		c.AppendError(errNotInteger)
 		return
 	}
 	is := obj.Value.(*Intset)
-	c.AppendReply(is.del(int16(value)), false)
+	c.AppendIntReply(int64(is.del(int16(value))))
 }

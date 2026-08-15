@@ -27,7 +27,7 @@ func (GeoPosCmd) Name() string { return "GEOPOS" }
 
 func (GeoHashCmd) Execute(ctx context.Context, c ClientCommander, args []string) {
 	if len(args) < 2 {
-		c.AppendReply(errWrongArgs("geohash"), false)
+		c.AppendError(errWrongArgs("geohash"))
 		return
 	}
 
@@ -35,19 +35,20 @@ func (GeoHashCmd) Execute(ctx context.Context, c ClientCommander, args []string)
 	obj, exists := Get(key)
 
 	if !exists {
-		c.AppendReply(nil, false)
+		c.AppendNull()
 	}
 
 	if err := assertType(obj.TypeEncoding, OBJ_TYPE_GEO_SPATIAL); err != nil {
-		c.AppendReply(errWrongType(), false)
+		c.AppendError(errWrongType())
 	}
 
-	c.AppendReply(obj.Value.(*GeoSpatial).GeoHash(args[1:]), false)
+	c.AppendStrArray(obj.Value.(*GeoSpatial).GeoHash(args[1:]))
 }
 
 func (GeoAddCmd) Execute(ctx context.Context, c ClientCommander, args []string) {
 	if len(args) < 4 {
-		c.AppendReply(errWrongArgs("geoadd"), false)
+		c.AppendError(errWrongArgs("geoadd"))
+		//c.AppendReply(errWrongArgs("geoadd"), false)
 		return
 	}
 
@@ -74,12 +75,13 @@ func (GeoAddCmd) Execute(ctx context.Context, c ClientCommander, args []string) 
 		count++
 	}
 
-	c.AppendReply(count, false)
+	c.AppendIntReply(int64(count))
 }
 
 func (GeoDistCmd) Execute(ctx context.Context, c ClientCommander, args []string) {
 	if len(args) != 3 {
-		c.AppendReply(errWrongArgs("geodist"), false)
+		c.AppendError(errWrongArgs("geodist"))
+		//	c.AppendReply(errWrongArgs("geodist"), false)
 		return
 	}
 
@@ -90,12 +92,14 @@ func (GeoDistCmd) Execute(ctx context.Context, c ClientCommander, args []string)
 	obj, exists := Get(key)
 
 	if !exists {
-		c.AppendReply(nil, false)
+		//	c.AppendReply(nil, false)
+		c.AppendNull()
 		return
 	}
 
 	if err := assertType(obj.TypeEncoding, OBJ_TYPE_GEO_SPATIAL); err != nil {
-		c.AppendReply(errWrongType(), false)
+		c.AppendError(errWrongType())
+		//c.AppendReply(errWrongType(), false)
 		return
 	}
 
@@ -103,22 +107,25 @@ func (GeoDistCmd) Execute(ctx context.Context, c ClientCommander, args []string)
 
 	e1, ok := g.index[member1]
 	if !ok {
-		c.AppendReply(nil, false)
+		c.AppendNull()
+		//c.AppendReply(nil, false)
 		return
 	}
 
 	e2, ok := g.index[member2]
 	if !ok {
-		c.AppendReply(nil, false)
+		c.AppendNull()
+		//c.AppendReply(nil, false)
 		return
 	}
 
-	c.AppendReply(Haversine(e1.Lat, e1.Lon, e2.Lat, e2.Lon), false)
+	c.AppendFloat(Haversine(e1.Lat, e1.Lon, e2.Lat, e2.Lon))
 }
 
 func (GeoPosCmd) Execute(ctx context.Context, c ClientCommander, args []string) {
 	if len(args) < 2 {
-		c.AppendReply(errWrongArgs("geopos"), false)
+		c.AppendError(errWrongArgs("geopos"))
+		//	c.AppendReply(errWrongArgs("geopos"), false)
 		return
 	}
 
@@ -127,18 +134,20 @@ func (GeoPosCmd) Execute(ctx context.Context, c ClientCommander, args []string) 
 	obj, exists := Get(key)
 
 	if !exists {
-		c.AppendReply(nil, false)
+		c.AppendNull()
+		//c.AppendReply(nil, false)
 		return
 	}
 
 	if err := assertType(obj.TypeEncoding, OBJ_TYPE_GEO_SPATIAL); err != nil {
-		c.AppendReply(errWrongType(), false)
+		c.AppendError(errWrongType())
+		//c.AppendReply(errWrongType(), false)
 		return
 	}
 
 	g := obj.Value.(*GeoSpatial)
 
-	var res []any
+	var res [][]string
 
 	for _, member := range args[1:] {
 		e, ok := g.index[member]
@@ -150,12 +159,13 @@ func (GeoPosCmd) Execute(ctx context.Context, c ClientCommander, args []string) 
 		res = append(res, e.String())
 	}
 
-	c.AppendReply(res, false)
+	c.AppendStringArrayArray(res)
 }
 
 func (GeoSearchCmd) Execute(ctx context.Context, c ClientCommander, args []string) {
 	if len(args) != 4 {
-		c.AppendReply(errWrongArgs("geosearch"), false)
+		c.AppendError(errWrongArgs("geosearch"))
+		//c.AppendReply(errWrongArgs("geosearch"), false)
 		return
 	}
 
@@ -163,12 +173,14 @@ func (GeoSearchCmd) Execute(ctx context.Context, c ClientCommander, args []strin
 	obj, exists := Get(key)
 
 	if !exists {
-		c.AppendReply(nil, false)
+		c.AppendNull()
+		//c.AppendReply(nil, false)
 		return
 	}
 
 	if err := assertType(obj.TypeEncoding, OBJ_TYPE_GEO_SPATIAL); err != nil {
-		c.AppendReply(errWrongType(), false)
+		c.AppendError(errWrongType())
+		//	c.AppendReply(errWrongType(), false)
 		return
 	}
 
@@ -177,5 +189,5 @@ func (GeoSearchCmd) Execute(ctx context.Context, c ClientCommander, args []strin
 	lat, _ := strconv.ParseFloat(args[2], 64)
 	lon, _ := strconv.ParseFloat(args[3], 64)
 
-	c.AppendReply(g.Search(lat, lon), false)
+	c.AppendStrArray(g.Search(lat, lon))
 }

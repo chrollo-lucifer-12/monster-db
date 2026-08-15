@@ -1,7 +1,5 @@
 package core
 
-import "github.com/redis-server/resp"
-
 var (
 	RESP_NIL       = []byte("$-1\r\n")
 	RESP_OK        = []byte("+OK\r\n")
@@ -27,6 +25,6 @@ func errInvalidInt() string {
 }
 
 // only used in AOF/writeCommand, keep returning []byte
-func encodeTokens(tokens []string) []byte {
-	return resp.Encode(nil, tokens, false)
-}
+// func encodeTokens(tokens []string) []byte {
+// 	return resp.Encode(nil, tokens, false)
+// }

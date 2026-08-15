@@ -17,7 +17,18 @@ func (nullClient) SetFlag(flag uint8)      {}
 func (nullClient) ClearFlag(flag uint8)    {}
 func (nullClient) HasFlag(flag uint8) bool { return false }
 
-func (nullClient) AppendReply(value any, isSimple bool) {}
+func (nullClient) AppendBulkString(val string) {
+}
+func (nullClient) AppendNull() {
+}
+func (nullClient) AppendError(err string) {
+}
+func (nullClient) AppendSimpleString(val string)       {}
+func (nullClient) AppendArrayLen(len int)              {}
+func (nullClient) AppendFloat(v float64)               {}
+func (nullClient) AppendIntArray(v []int64)            {}
+func (nullClient) AppendStrArray(v []string)           {}
+func (nullClient) AppendStringArrayArray(v [][]string) {}
 
 func (nullClient) ResetMultiState()           {}
 func (nullClient) QueueCommand(cmd *RedisCmd) {}

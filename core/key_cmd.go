@@ -25,21 +25,25 @@ func (IncrCmd) Name() string { return "INCR" }
 func (PingCmd) Execute(ctx context.Context, c ClientCommander, args []string) {
 
 	if len(args) >= 2 {
-		c.AppendReply(errWrongArgs("ping"), false)
+		c.AppendError(errWrongArgs("ping"))
+		//	c.AppendReply(errWrongArgs("ping"), false)
 		return
 	}
 
 	if len(args) == 0 {
-		c.AppendReply("PONG", true)
+		c.AppendSimpleString("PONG")
+		//	c.AppendReply("PONG", true)
 	} else {
-		c.AppendReply(args[0], false)
+		c.AppendBulkString(args[0])
+		//	c.AppendReply(args[0], false)
 	}
 
 }
 
 func (IncrCmd) Execute(ctx context.Context, c ClientCommander, args []string) {
 	if len(args) != 1 {
-		c.AppendReply(errWrongArgs("incr"), false)
+		c.AppendError(errWrongArgs("incr"))
+		//	c.AppendReply(errWrongArgs("incr"), false)
 		return
 	}
 
@@ -52,12 +56,13 @@ func (IncrCmd) Execute(ctx context.Context, c ClientCommander, args []string) {
 	}
 
 	if err := assertType(obj.TypeEncoding, OBJ_TYPE_STRING); err != nil {
-		c.AppendReply(err, false)
+		c.AppendError(err.Error())
+		//c.AppendReply(err, false)
 		return
 	}
 
 	if err := assertEncoding(obj.TypeEncoding, OBJ_ENCODING_INT); err != nil {
-		c.AppendReply(err, false)
+		c.AppendError(err.Error())
 		return
 	}
 
@@ -65,12 +70,14 @@ func (IncrCmd) Execute(ctx context.Context, c ClientCommander, args []string) {
 	i++
 	obj.StrVal = strconv.FormatInt(i, 10)
 	store[key] = obj
-	c.AppendReply(i, false)
+	c.AppendIntReply(i)
+	//	c.AppendReply(i, false)
 }
 
 func (ExpCmd) Execute(ctx context.Context, c ClientCommander, args []string) {
 	if len(args) <= 1 {
-		c.AppendReply(errWrongArgs("expire"), false)
+		c.AppendError(errWrongArgs("expire"))
+		//c.AppendReply(errWrongArgs("expire"), false)
 		return
 	}
 
@@ -78,25 +85,27 @@ func (ExpCmd) Execute(ctx context.Context, c ClientCommander, args []string) {
 	exDurationSec, err := strconv.ParseInt(args[1], 10, 64)
 
 	if err != nil {
-		c.AppendReply(errInvalidInt(), false)
+		c.AppendError(errInvalidInt())
+		//	c.AppendReply(errInvalidInt(), false)
 		return
 	}
 
 	_, exists := Get(key)
 
 	if !exists {
-		c.AppendReply(RESP_ZERO, true)
+		c.AppendBytesReply(RESP_ZERO)
 		return
 	}
 
 	setExpiry(key, exDurationSec*1000)
 
-	c.AppendReply(RESP_ONE, true)
+	c.AppendBytesReply(RESP_ONE)
 }
 
 func (TtlCmd) Execute(ctx context.Context, c ClientCommander, args []string) {
 	if len(args) != 1 {
-		c.AppendReply(errWrongArgs("ttl"), false)
+		c.AppendError(errWrongArgs("ttl"))
+		//c.AppendReply(errWrongArgs("ttl"), false)
 		return
 	}
 
@@ -105,25 +114,25 @@ func (TtlCmd) Execute(ctx context.Context, c ClientCommander, args []string) {
 	_, exists := Get(key)
 
 	if !exists {
-		c.AppendReply(RESP_MINUS_TWO, true)
+		c.AppendBytesReply(RESP_MINUS_TWO)
 		return
 	}
 
 	exp, isExpirySet := getExpiry(key)
 
 	if !isExpirySet {
-		c.AppendReply(RESP_MINUS_ONE, true)
+		c.AppendBytesReply(RESP_MINUS_ONE)
 		return
 	}
 
 	if uint64(time.Now().UnixMilli()) > exp {
-		c.AppendReply(RESP_MINUS_TWO, true)
+		c.AppendBytesReply(RESP_MINUS_TWO)
 		return
 	}
 
 	durationMs := exp - uint64(time.Now().UnixMilli())
 
-	c.AppendReply(int64(durationMs/1000), false)
+	c.AppendIntReply(int64(durationMs / 1000))
 }
 
 func (DelCmd) Execute(ctx context.Context, c ClientCommander, args []string) {
@@ -134,13 +143,13 @@ func (DelCmd) Execute(ctx context.Context, c ClientCommander, args []string) {
 			countDeleted++
 		}
 	}
-	c.AppendReply(countDeleted, false)
+	c.AppendIntReply(int64(countDeleted))
 
 }
 
 func (SetCmd) Execute(ctx context.Context, c ClientCommander, args []string) {
 	if len(args) <= 1 {
-		c.AppendReply(errWrongArgs("set"), false)
+		c.AppendError(errWrongArgs("set"))
 		return
 	}
 
@@ -155,46 +164,40 @@ func (SetCmd) Execute(ctx context.Context, c ClientCommander, args []string) {
 		case "EX", "ex":
 			i++
 			if i == len(args) {
-				c.AppendReply("ERR syntax error", false)
+				c.AppendError("ERR syntax error")
 				return
 			}
 
 			exDurationSec, err := strconv.ParseInt(args[i], 10, 64)
 			if err != nil {
-				c.AppendReply(errInvalidInt(), false)
+				c.AppendError(errInvalidInt())
 				return
 			}
 
 			exDurationsMs = exDurationSec * 1000
 
 		default:
-			c.AppendReply("ERR syntax error", false)
+			c.AppendError("ERR syntax error")
 			return
 		}
 	}
 	Put(key, NewStringObj(value, oType, oEnc), exDurationsMs)
-	c.AppendReply("OK", true)
+	c.AppendSimpleString("OK")
 }
 
 func (GetCmd) Execute(ctx context.Context, c ClientCommander, args []string) {
 	if len(args) != 1 {
-		c.AppendReply(errWrongArgs("get"), false)
+		c.AppendError("ERR wrong number of arguments for 'get' command")
 		return
 	}
 
-	var key string = args[0]
-
+	key := args[0]
 	obj, exists := Get(key)
 
-	if !exists {
-		c.AppendReply(nil, false)
+	if !exists || hasExpired(key) {
+		c.AppendNull()
 		return
 	}
 
-	if hasExpired(key) {
-		c.AppendReply(nil, false)
-		return
-	}
-
-	c.AppendReply(obj.StrVal, false)
+	c.AppendBulkString(obj.StrVal)
 }

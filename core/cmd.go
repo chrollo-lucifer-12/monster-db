@@ -18,11 +18,17 @@ type ClientCommander interface {
 	ClearFlag(flag uint8)
 	HasFlag(flag uint8) bool
 
-	AppendReply(value any, isSimple bool)
-
 	AppendBytesReply(val []byte)
-
 	AppendIntReply(val int64)
+	AppendError(err string)
+	AppendNull()
+	AppendBulkString(val string)
+	AppendSimpleString(val string)
+	AppendStrArray(val []string)
+	AppendFloat(val float64)
+	AppendStringArrayArray(val [][]string)
+	AppendArrayLen(len int)
+	AppendIntArray(v []int64)
 
 	ResetMultiState()
 	QueueCommand(cmd *RedisCmd)

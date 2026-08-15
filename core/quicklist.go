@@ -1,7 +1,5 @@
 package core
 
-import "github.com/redis-server/resp"
-
 const maxListpackBytes = 8 * 1024
 
 type QuicklistNode struct {
@@ -101,7 +99,7 @@ func (ql *Quicklist) addToHead(val any) {
 
 func (ql *Quicklist) RemoveElements(count int, c ClientCommander) {
 	if ql.head == nil || ql.len == 0 || count <= 0 {
-		c.AppendReply(nil, false)
+		c.AppendNull()
 		return
 	}
 
@@ -109,7 +107,7 @@ func (ql *Quicklist) RemoveElements(count int, c ClientCommander) {
 		count = ql.len
 	}
 
-	c.AppendReply(resp.ArrayLen(count), false)
+	c.AppendArrayLen(count)
 
 	removed := 0
 	node := ql.head
@@ -195,11 +193,11 @@ func (ql *Quicklist) RemoveElements(count int, c ClientCommander) {
 
 func (ql *Quicklist) GetElements(start, stop int, c ClientCommander) {
 	if ql.head == nil || ql.len == 0 {
-		c.AppendReply(nil, false)
+		c.AppendNull()
 		return
 	}
 
-	c.AppendReply(resp.ArrayLen(stop-start+1), false)
+	c.AppendArrayLen(stop - start + 1)
 	index := 0
 
 	for node := ql.head; node != nil; node = node.next {

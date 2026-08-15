@@ -14,7 +14,10 @@ func (SubCmd) Execute(ctx context.Context, c ClientCommander, args []string) {
 		if !added {
 			continue
 		}
-		c.AppendReply([]any{"subscribe", key, count}, false)
+		c.AppendArrayLen(3)
+		c.AppendBulkString("subscribe")
+		c.AppendBulkString(key)
+		c.AppendIntReply(int64(count))
 	}
 }
 
@@ -33,7 +36,10 @@ func (UnsubCmd) Execute(ctx context.Context, c ClientCommander, args []string) {
 		if !removed {
 			continue
 		}
-		c.AppendReply([]any{"unsubscribe", key, count}, false)
+		c.AppendArrayLen(3)
+		c.AppendBulkString("unsubscribe")
+		c.AppendBulkString(key)
+		c.AppendIntReply(int64(count))
 	}
 	return
 }
@@ -44,10 +50,10 @@ func (PublishCmd) Name() string { return "PUBLISH" }
 
 func (PublishCmd) Execute(ctx context.Context, c ClientCommander, args []string) {
 	if len(args) != 2 {
-		c.AppendReply(errWrongArgs("publish"), false)
+		c.AppendError(errWrongArgs("publish"))
 		return
 	}
 	key, message := args[0], args[1]
 	delivered := c.Publish(key, message)
-	c.AppendReply(delivered, false)
+	c.AppendIntReply(int64(delivered))
 }

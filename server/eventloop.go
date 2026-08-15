@@ -60,12 +60,15 @@ func beforeSleep(loop *EventLoop) {
 			continue
 		}
 
-		client.ReplyBuf = client.ReplyBuf[n:]
+		// client.ReplyBuf = client.ReplyBuf[n:]
 
-		if len(client.ReplyBuf) > 0 {
-			loop.AddFileEvent(fd, unix.EPOLLOUT, SendReplyToClient, client)
-		} else {
+		if n == len(client.ReplyBuf) {
+			client.ReplyBuf = client.ReplyBuf[:0]
 			loop.DeleteFileEvent(fd, unix.EPOLLOUT)
+		} else {
+			copy(client.ReplyBuf, client.ReplyBuf[n:])
+			client.ReplyBuf = client.ReplyBuf[:len(client.ReplyBuf)-n]
+			loop.AddFileEvent(fd, unix.EPOLLOUT, SendReplyToClient, client)
 		}
 
 		delete(clientsPendingWrite, fd)
