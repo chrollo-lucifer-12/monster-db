@@ -88,7 +88,7 @@ func Put(k string, obj Obj, expDurationMs int64) {
 		evict()
 	}
 
-	touch(k, obj)
+	obj = touch(obj)
 	store[k] = obj
 
 	if expDurationMs > 0 {
@@ -118,7 +118,7 @@ func Get(k string) (Obj, bool) {
 		}
 	}
 
-	touch(k, v)
+	v = touch(v)
 	store[k] = v
 
 	return v, true
@@ -146,8 +146,6 @@ func DeleteExpiredKey() {
 			break
 		}
 	}
-
-	// log.Println("deleted the expired but undeleted keys. total keys", len(store))
 }
 
 func IsEmpty(key string) bool {

@@ -52,3 +52,16 @@ func BenchmarkGetHit(b *testing.B) {
 	_ = sink
 	_ = ok
 }
+
+func BenchmarkMapGet(b *testing.B) {
+	store := make(map[string]Obj, 1_000_000)
+	store["key-0"] = Obj{}
+
+	k := "key-0"
+
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		_, _ = store[k]
+	}
+}

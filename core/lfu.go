@@ -47,19 +47,16 @@ func increment(counter uint8) uint8 {
 	return counter
 }
 
-func touch(k string, obj Obj) {
+func touch(obj Obj) Obj {
 	now := LFUClock()
-
 	counter := getCounter(obj)
 	last := getLastDecay(obj)
 
 	elapsed := now - last
-
 	periods := elapsed / DecayMinutes
-
 	counter = decay(counter, periods)
-
 	counter = increment(counter)
 
-	setLFU(k, obj, now, counter)
+	obj.LastAccessedAt = (now << 8) | uint32(counter)
+	return obj
 }
