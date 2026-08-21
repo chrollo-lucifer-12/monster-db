@@ -168,20 +168,6 @@ func EncodeString(buf []byte, v string) []byte {
 		}
 	}
 
-	//	needed := 1 + (len(tmp) - i) + 2 + n + 2
-
-	// if cap(buf)-len(buf) < needed {
-	// 	newCap := len(buf) + needed
-
-	// 	if doubled := cap(buf) * 2; doubled > newCap {
-	// 		newCap = doubled
-	// 	}
-
-	// 	newBuf := make([]byte, len(buf), newCap)
-	// 	copy(newBuf, buf)
-	// 	buf = newBuf
-	// }
-
 	buf = append(buf, '$')
 	buf = append(buf, tmp[i:]...)
 	buf = append(buf, '\r', '\n')
