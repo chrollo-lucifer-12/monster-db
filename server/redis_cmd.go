@@ -27,11 +27,11 @@ func respond(cmds core.RedisCmds, client *Client, loop *EventLoop) {
 		if client.HasFlag(core.MULTI_MODE) && cmd.Cmd != "EXEC" && cmd.Cmd != "DISCARD" {
 			if _, ok := core.Lookup(cmd.Cmd); !ok {
 				client.AbortMulti()
-				client.ReplyBuf = append(client.ReplyBuf, []byte("-ERR unknown command '"+cmd.Cmd+"'\r\n")...)
+				client.ReplyBuf = append(client.ReplyBuf, []byte("-ERR unknown command '"+cmd.Cmd+"'\r\n"))
 				continue
 			}
 			client.QueueCommand(cmd)
-			client.ReplyBuf = append(client.ReplyBuf, queued...)
+			client.ReplyBuf = append(client.ReplyBuf, queued)
 			continue
 		}
 
@@ -43,7 +43,7 @@ func respond(cmds core.RedisCmds, client *Client, loop *EventLoop) {
 			cmd.Cmd != "SUBSCRIBE" && cmd.Cmd != "UNSUBSCRIBE" &&
 			cmd.Cmd != "PSUBSCRIBE" && cmd.Cmd != "PUNSUBSCRIBE" &&
 			cmd.Cmd != "PING" && cmd.Cmd != "QUIT" {
-			client.ReplyBuf = append(client.ReplyBuf, errSubscribeOnly...)
+			client.ReplyBuf = append(client.ReplyBuf, errSubscribeOnly)
 			continue
 		}
 
@@ -63,7 +63,7 @@ func respond(cmds core.RedisCmds, client *Client, loop *EventLoop) {
 
 		cmdImpl, ok := core.Lookup(cmd.Cmd)
 		if !ok {
-			client.ReplyBuf = append(client.ReplyBuf, errUnknownCmd...)
+			client.ReplyBuf = append(client.ReplyBuf, errUnknownCmd)
 			continue
 		}
 

@@ -33,7 +33,7 @@ func HandleInformReplicas(cmd []byte) {
 	}
 
 	for fd, replicaClient := range ConnectedReplicas {
-		replicaClient.ReplyBuf = append(replicaClient.ReplyBuf, cmd...)
+		replicaClient.ReplyBuf = append(replicaClient.ReplyBuf, cmd)
 
 		clientsPendingWrite[fd] = replicaClient
 	}
@@ -41,7 +41,7 @@ func HandleInformReplicas(cmd []byte) {
 
 func HandleMasterReplConfCommand(c *Client, args []string) {
 	if len(args) < 2 {
-		c.ReplyBuf = append(c.ReplyBuf, []byte("-ERR syntax error\r\n")...)
+		c.ReplyBuf = append(c.ReplyBuf, []byte("-ERR syntax error\r\n"))
 		return
 	}
 
@@ -50,7 +50,7 @@ func HandleMasterReplConfCommand(c *Client, args []string) {
 	switch subCommand {
 	case "listening-port", "capa":
 
-		c.ReplyBuf = append(c.ReplyBuf, []byte("+OK\r\n")...)
+		c.ReplyBuf = append(c.ReplyBuf, []byte("+OK\r\n"))
 
 	case "ack":
 
@@ -68,7 +68,7 @@ func HandleMasterReplConfCommand(c *Client, args []string) {
 
 func HandleMasterPsyncCommand(loop *EventLoop, c *Client, args []string) {
 	if len(args) < 2 {
-		c.ReplyBuf = append(c.ReplyBuf, []byte("-ERR syntax error\r\n")...)
+		c.ReplyBuf = append(c.ReplyBuf, []byte("-ERR syntax error\r\n"))
 		return
 	}
 
@@ -79,19 +79,19 @@ func HandleMasterPsyncCommand(loop *EventLoop, c *Client, args []string) {
 
 	if reqReplID == MasterRunID && reqOffset >= diff && reqOffset <= MasterGlobalOffset {
 		log.Printf("Replica on FD %d qualified for Partial Resync (+CONTINUE)\n", c.Fd)
-		c.ReplyBuf = append(c.ReplyBuf, []byte("+CONTINUE\r\n")...)
+		c.ReplyBuf = append(c.ReplyBuf, []byte("+CONTINUE\r\n"))
 
 		deltaStart := reqOffset - diff
 		if deltaStart < int64(len(ReplBacklog)) {
-			c.ReplyBuf = append(c.ReplyBuf, ReplBacklog[deltaStart:]...)
+			c.ReplyBuf = append(c.ReplyBuf, ReplBacklog[deltaStart:])
 		}
 	} else {
 
 		log.Printf("Replica on FD %d requires Full Resync (+FULLRESYNC)\n", c.Fd)
 		fullResyncHeader := fmt.Sprintf("+FULLRESYNC %s %d\r\n", MasterRunID, MasterGlobalOffset)
-		c.ReplyBuf = append(c.ReplyBuf, []byte(fullResyncHeader)...)
+		c.ReplyBuf = append(c.ReplyBuf, []byte(fullResyncHeader))
 
-		c.ReplyBuf = append(c.ReplyBuf, core.EncodeStore()...)
+		c.ReplyBuf = append(c.ReplyBuf, core.EncodeStore())
 	}
 
 	ConnectedReplicas[c.Fd] = c

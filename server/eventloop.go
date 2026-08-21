@@ -47,11 +47,11 @@ func beforeSleep(loop *EventLoop) {
 			continue
 		}
 
-		n, err := unix.Write(fd, client.ReplyBuf)
+		n, err := unix.Writev(fd, client.ReplyBuf)
 
 		if err != nil {
 			if err == unix.EAGAIN || err == unix.EWOULDBLOCK {
-				loop.AddFileEvent(fd, unix.EPOLLOUT, SendReplyToClient, client)
+				//	loop.AddFileEvent(fd, unix.EPOLLOUT, SendReplyToClient, client)
 				continue
 			}
 
@@ -60,15 +60,30 @@ func beforeSleep(loop *EventLoop) {
 			continue
 		}
 
-		// client.ReplyBuf = client.ReplyBuf[n:]
+		writtenBytes := n
+		chunksToRemove := 0
 
-		if n == len(client.ReplyBuf) {
+		for i := 0; i < len(client.ReplyBuf); i++ {
+			chunkLen := len(client.ReplyBuf[i])
+
+			if writtenBytes >= chunkLen {
+				writtenBytes -= chunkLen
+				chunksToRemove++
+			} else {
+				if writtenBytes > 0 {
+					client.ReplyBuf[i] = client.ReplyBuf[i][writtenBytes:]
+				}
+				break
+			}
+
+		}
+
+		if chunksToRemove == len(client.ReplyBuf) {
 			client.ReplyBuf = client.ReplyBuf[:0]
 			loop.DeleteFileEvent(fd, unix.EPOLLOUT)
 		} else {
-			copy(client.ReplyBuf, client.ReplyBuf[n:])
-			client.ReplyBuf = client.ReplyBuf[:len(client.ReplyBuf)-n]
-			loop.AddFileEvent(fd, unix.EPOLLOUT, SendReplyToClient, client)
+			client.ReplyBuf = client.ReplyBuf[chunksToRemove:]
+			//	loop.AddFileEvent(fd, unix.EPOLLOUT, SendReplyToClient, client)
 		}
 
 		delete(clientsPendingWrite, fd)

@@ -26,7 +26,7 @@ type Multistate struct {
 type Client struct {
 	Fd         int
 	QueryBuf   []byte
-	ReplyBuf   []byte
+	ReplyBuf   [][]byte
 	flag       uint8
 	multistate Multistate
 	key        []byte
@@ -40,47 +40,60 @@ func (c *Client) ClearFlag(flag uint8)    { c.flag &^= flag }
 func (c *Client) HasFlag(flag uint8) bool { return c.flag&flag != 0 }
 
 func (c *Client) AppendBytesReply(val []byte) {
-	c.ReplyBuf = resp.EncodeStringBytes(c.ReplyBuf, val)
+	c.ReplyBuf = append(c.ReplyBuf, resp.EncodeStringBytes(nil, val))
 }
 
-func (c *Client) AppendArrayLen(len int) {
-	c.ReplyBuf = resp.EncodeArrayLen(c.ReplyBuf, len)
+func (c *Client) AppendArrayLen(n int) {
+	c.ReplyBuf = append(c.ReplyBuf, resp.EncodeArrayLen(nil, n))
 }
 
 func (c *Client) AppendIntArray(v []int64) {
-	c.ReplyBuf = resp.EncodeArrayLen(c.ReplyBuf, len(v))
+	c.AppendArrayLen(len(v))
 
 	for _, item := range v {
-		c.ReplyBuf = resp.EncodeInt(c.ReplyBuf, item)
+		c.ReplyBuf = append(c.ReplyBuf, resp.EncodeInt(nil, item))
 	}
 }
 
 func (c *Client) AppendSimpleString(val string) {
-	c.ReplyBuf = resp.EncodeSimpleString(c.ReplyBuf, val)
+	c.ReplyBuf = append(
+		c.ReplyBuf,
+		resp.EncodeSimpleString(nil, val),
+	)
 }
 
 func (c *Client) AppendBulkString(val string) {
-	c.ReplyBuf = append(c.ReplyBuf, '$')
-	c.ReplyBuf = strconv.AppendInt(c.ReplyBuf, int64(len(val)), 10)
-	c.ReplyBuf = append(c.ReplyBuf, '\r', '\n')
-	c.ReplyBuf = append(c.ReplyBuf, val...)
-	c.ReplyBuf = append(c.ReplyBuf, '\r', '\n')
+	buf := make([]byte, 0, len(val)+32)
+
+	buf = append(buf, '$')
+	buf = strconv.AppendInt(buf, int64(len(val)), 10)
+	buf = append(buf, '\r', '\n')
+	buf = append(buf, val...)
+	buf = append(buf, '\r', '\n')
+
+	c.ReplyBuf = append(c.ReplyBuf, buf)
 }
 
 func (c *Client) AppendStrArray(v []string) {
-	c.ReplyBuf = resp.EncodeArrayLen(c.ReplyBuf, len(v))
+	c.AppendArrayLen(len(v))
 
 	for _, item := range v {
-		c.ReplyBuf = resp.EncodeString(c.ReplyBuf, item)
+		c.ReplyBuf = append(
+			c.ReplyBuf,
+			resp.EncodeString(nil, item),
+		)
 	}
 }
 
 func (c *Client) AppendStringArrayArray(v [][]string) {
-	c.ReplyBuf = resp.EncodeArrayLen(c.ReplyBuf, len(v))
+	c.AppendArrayLen(len(v))
 
 	for _, arr := range v {
 		if arr == nil {
-			c.ReplyBuf = append(c.ReplyBuf, '$', '-', '1', '\r', '\n')
+			c.ReplyBuf = append(
+				c.ReplyBuf,
+				[]byte("$-1\r\n"),
+			)
 			continue
 		}
 
@@ -89,21 +102,31 @@ func (c *Client) AppendStringArrayArray(v [][]string) {
 }
 
 func (c *Client) AppendFloat(val float64) {
-	c.ReplyBuf = strconv.AppendFloat(c.ReplyBuf, val, 'g', -1, 64)
+	buf := make([]byte, 0, 32)
+	buf = strconv.AppendFloat(buf, val, 'g', -1, 64)
+
+	c.ReplyBuf = append(c.ReplyBuf, buf)
 }
 
 func (c *Client) AppendNull() {
-	c.ReplyBuf = append(c.ReplyBuf, "$-1\r\n"...)
+	c.ReplyBuf = append(c.ReplyBuf, []byte("$-1\r\n"))
 }
 
 func (c *Client) AppendError(err string) {
-	c.ReplyBuf = append(c.ReplyBuf, '-')
-	c.ReplyBuf = append(c.ReplyBuf, err...)
-	c.ReplyBuf = append(c.ReplyBuf, '\r', '\n')
+	buf := make([]byte, 0, len(err)+3)
+
+	buf = append(buf, '-')
+	buf = append(buf, err...)
+	buf = append(buf, '\r', '\n')
+
+	c.ReplyBuf = append(c.ReplyBuf, buf)
 }
 
 func (c *Client) AppendIntReply(val int64) {
-	c.ReplyBuf = resp.EncodeInt(c.ReplyBuf, val)
+	c.ReplyBuf = append(
+		c.ReplyBuf,
+		resp.EncodeInt(nil, val),
+	)
 }
 
 func (c *Client) ResetMultiState() {
@@ -294,7 +317,7 @@ func HandleBlockedClients(loop *EventLoop, id int64, clientData any) int {
 				client.flag &= ^CLIENT_BLOCKED
 				client.when = time.Time{}
 
-				client.ReplyBuf = append(client.ReplyBuf, []byte("$-1\r\n")...)
+				client.ReplyBuf = append(client.ReplyBuf, []byte("$-1\r\n"))
 
 				clientsPendingWrite[client.Fd] = client
 			} else {
@@ -317,7 +340,7 @@ func NewClient(fd int) *Client {
 
 	qBuf := make([]byte, 4096)
 
-	rBuf := make([]byte, 4096)
+	rBuf := make([][]byte, 4096)
 
 	return &Client{
 		Fd:            fd,
