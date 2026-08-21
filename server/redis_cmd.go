@@ -94,7 +94,7 @@ func respond(cmds core.RedisCmds, client *Client, loop *EventLoop) {
 		cmdImpl.Execute(ctx, client, cmd.Args)
 
 		if isReplicatedCmd(cmd.Cmd) && MasterFD == -1 {
-			Replicate(encodeCommand(*cmd))
+			pendindCommands = append(pendindCommands, *cmd)
 		}
 	}
 }
