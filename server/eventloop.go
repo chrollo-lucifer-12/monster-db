@@ -34,9 +34,12 @@ func CreateEventLoop(maxClients int) (*EventLoop, error) {
 
 func beforeSleep(loop *EventLoop) {
 
-	// if ReplicaState == REPL_STATE_CONNECT {
-	// 	InitMasterConnection(loop)
-	// }
+	if MasterFD != -1 {
+		for _, cmd := range pendindCommands {
+			Replicate(encodeCommand(cmd))
+		}
+		pendindCommands = pendindCommands[:0]
+	}
 
 	processKeys(loop)
 
@@ -59,8 +62,6 @@ func beforeSleep(loop *EventLoop) {
 			delete(clientsPendingWrite, fd)
 			continue
 		}
-
-		// client.ReplyBuf = client.ReplyBuf[n:]
 
 		if n == len(client.ReplyBuf) {
 			client.ReplyBuf = client.ReplyBuf[:0]

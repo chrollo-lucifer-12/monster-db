@@ -32,6 +32,8 @@ type Client struct {
 	key        []byte
 	when       time.Time
 
+	IsReplica bool
+
 	subscriptions map[string]struct{}
 }
 
