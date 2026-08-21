@@ -55,32 +55,60 @@ func ReadQueryFromClient(loop *EventLoop, fd int, clientData interface{}) {
 	}
 }
 
-func SendReplyToClient(loop *EventLoop, fd int, clientData interface{}) {
+func SendReplyToClient(loop *EventLoop, fd int, clientData any) {
+
 	client := clientData.(*Client)
 
-	if len(client.ReplyBuf) == 0 {
-		loop.DeleteFileEvent(fd, unix.EPOLLOUT)
-		return
-	}
+	for len(client.ReplyBuf) > 0 {
+		n, err := unix.Write(fd, client.ReplyBuf)
 
-	n, err := unix.Write(fd, client.ReplyBuf)
-	if err != nil {
-		if err == unix.EAGAIN || err == unix.EWOULDBLOCK {
+		if err != nil {
+			if err == unix.EAGAIN || err == unix.EWOULDBLOCK {
+
+				return
+			}
+			// Connection error handling
+			freeClient(loop, client)
 			return
 		}
 
-		log.Printf("Write error on FD %d: %v\n", fd, err)
-		freeClient(loop, client)
-		return
+		if n == len(client.ReplyBuf) {
+			client.ReplyBuf = client.ReplyBuf[:0]
+		} else {
+			copy(client.ReplyBuf, client.ReplyBuf[n:])
+			client.ReplyBuf = client.ReplyBuf[:len(client.ReplyBuf)-n]
+		}
 	}
 
-	client.ReplyBuf = client.ReplyBuf[n:]
-
-	if len(client.ReplyBuf) == 0 {
-		client.ReplyBuf = client.ReplyBuf[:0]
-		loop.DeleteFileEvent(fd, unix.EPOLLOUT)
-	}
+	loop.DeleteFileEvent(fd, unix.EPOLLOUT)
 }
+
+// func SendReplyToClient(loop *EventLoop, fd int, clientData interface{}) {
+// 	client := clientData.(*Client)
+
+// 	if len(client.ReplyBuf) == 0 {
+// 		loop.DeleteFileEvent(fd, unix.EPOLLOUT)
+// 		return
+// 	}
+
+// 	n, err := unix.Write(fd, client.ReplyBuf)
+// 	if err != nil {
+// 		if err == unix.EAGAIN || err == unix.EWOULDBLOCK {
+// 			return
+// 		}
+
+// 		log.Printf("Write error on FD %d: %v\n", fd, err)
+// 		freeClient(loop, client)
+// 		return
+// 	}
+
+// 	client.ReplyBuf = client.ReplyBuf[n:]
+
+// 	if len(client.ReplyBuf) == 0 {
+// 		client.ReplyBuf = client.ReplyBuf[:0]
+// 		loop.DeleteFileEvent(fd, unix.EPOLLOUT)
+// 	}
+// }
 
 func processClientQueryBuffer(loop *EventLoop, client *Client) {
 

@@ -47,29 +47,12 @@ func beforeSleep(loop *EventLoop) {
 			continue
 		}
 
-		n, err := unix.Write(fd, client.ReplyBuf)
-
-		if err != nil {
-			if err == unix.EAGAIN || err == unix.EWOULDBLOCK {
-				loop.AddFileEvent(fd, unix.EPOLLOUT, SendReplyToClient, client)
-				continue
-			}
-
-			freeClient(loop, client)
+		if len(client.ReplyBuf) == 0 {
 			delete(clientsPendingWrite, fd)
 			continue
 		}
 
-		// client.ReplyBuf = client.ReplyBuf[n:]
-
-		if n == len(client.ReplyBuf) {
-			client.ReplyBuf = client.ReplyBuf[:0]
-			loop.DeleteFileEvent(fd, unix.EPOLLOUT)
-		} else {
-			copy(client.ReplyBuf, client.ReplyBuf[n:])
-			client.ReplyBuf = client.ReplyBuf[:len(client.ReplyBuf)-n]
-			loop.AddFileEvent(fd, unix.EPOLLOUT, SendReplyToClient, client)
-		}
+		loop.AddFileEvent(fd, unix.EPOLLOUT, SendReplyToClient, client)
 
 		delete(clientsPendingWrite, fd)
 	}

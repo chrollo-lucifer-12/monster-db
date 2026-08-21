@@ -37,7 +37,7 @@ func AcceptTcpHandler(el *EventLoop, serverFD int, clientData interface{}) {
 
 		client := NewClient(fd)
 
-		err = el.AddFileEvent(fd, unix.EPOLLIN, ReadQueryFromClient, client)
+		err = el.AddFileEvent(fd, unix.EPOLLIN|unix.EPOLLET, ReadQueryFromClient, client)
 		if err != nil {
 			log.Println("Failed to add client to epoll: ", err)
 			unix.Close(fd)

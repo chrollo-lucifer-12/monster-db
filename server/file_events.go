@@ -56,11 +56,13 @@ func (el *EventLoop) DeleteFileEvent(fd int, mask uint32) {
 	if fe.Mask == 0 {
 		unix.EpollCtl(el.EpollFD, unix.EPOLL_CTL_DEL, fd, nil)
 		delete(el.Events, fd)
-	} else {
-		ev := unix.EpollEvent{
-			Events: fe.Mask,
-			Fd:     int32(fd),
-		}
-		unix.EpollCtl(el.EpollFD, unix.EPOLL_CTL_MOD, fd, &ev)
+		return
 	}
+
+	ev := unix.EpollEvent{
+		Events: fe.Mask,
+		Fd:     int32(fd),
+	}
+	unix.EpollCtl(el.EpollFD, unix.EPOLL_CTL_MOD, fd, &ev)
+
 }

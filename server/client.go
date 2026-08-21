@@ -217,10 +217,13 @@ func (c *Client) BlockOn(key string, timeoutMs int) {
 }
 
 func freeClient(loop *EventLoop, client *Client) {
-	loop.DeleteFileEvent(client.Fd, unix.EPOLLIN|unix.EPOLLOUT)
+	loop.DeleteFileEvent(
+		client.Fd,
+		unix.EPOLLIN|unix.EPOLLOUT|unix.EPOLLET,
+	)
+
 	unix.Close(client.Fd)
 	con_clients--
-
 }
 
 func (c *Client) BlockClient(key string) {
