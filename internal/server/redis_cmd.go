@@ -4,8 +4,8 @@ import (
 	"context"
 	"strconv"
 
-	"github.com/redis-server/core"
-	"github.com/redis-server/core/resp"
+	"github.com/redis-server/internal/resp"
+	core "github.com/redis-server/internal/store"
 )
 
 var errSubscribeOnly = []byte("-ERR only (P)SUBSCRIBE / (P)UNSUBSCRIBE / PING / QUIT allowed in this context\r\n")

@@ -7,8 +7,8 @@ import (
 	"strconv"
 	"testing"
 
-	"github.com/redis-server/config"
-	"github.com/redis-server/core/resp"
+	"github.com/redis-server/internal/config"
+	"github.com/redis-server/internal/resp"
 )
 
 type benchClient struct {

@@ -6,7 +6,7 @@ import (
 	"strconv"
 	"testing"
 
-	"github.com/redis-server/config"
+	"github.com/redis-server/internal/config"
 )
 
 func BenchmarkPut(b *testing.B) {

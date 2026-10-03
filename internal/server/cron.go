@@ -3,7 +3,7 @@ package server
 import (
 	"time"
 
-	"github.com/redis-server/core"
+	core "github.com/redis-server/internal/store"
 )
 
 func serverCronHandler(loop *EventLoop, id int64, clientData interface{}) int {

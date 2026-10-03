@@ -6,9 +6,8 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/redis-server/core"
-	"github.com/redis-server/core/resp"
-
+	"github.com/redis-server/internal/resp"
+	core "github.com/redis-server/internal/store"
 	"golang.org/x/sys/unix"
 )
 

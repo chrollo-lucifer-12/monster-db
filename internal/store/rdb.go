@@ -7,7 +7,7 @@ import (
 	"os"
 	"syscall"
 
-	"github.com/redis-server/config"
+	"github.com/redis-server/internal/config"
 	"github.com/redis-server/internal/resp"
 )
 

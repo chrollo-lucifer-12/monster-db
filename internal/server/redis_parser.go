@@ -5,8 +5,8 @@ import (
 	"io"
 	"strings"
 
-	"github.com/redis-server/core"
-	"github.com/redis-server/core/resp"
+	"github.com/redis-server/internal/resp"
+	core "github.com/redis-server/internal/store"
 )
 
 func toArrayString(ai []interface{}) ([]string, error) {

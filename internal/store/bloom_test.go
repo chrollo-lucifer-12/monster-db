@@ -1,4 +1,4 @@
-package ds
+package core
 
 // func BenchmarkBFRESERVECmdExecute(b *testing.B) {
 // 	store = make(map[string]Obj, b.N)

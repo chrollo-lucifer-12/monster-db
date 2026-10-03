@@ -7,7 +7,7 @@ import (
 	"os"
 	"strconv"
 
-	"github.com/redis-server/config"
+	"github.com/redis-server/internal/config"
 	"github.com/redis-server/internal/ds"
 	"github.com/redis-server/internal/resp"
 )

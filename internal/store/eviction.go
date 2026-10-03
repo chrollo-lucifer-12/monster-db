@@ -1,8 +1,6 @@
 package core
 
-import (
-	"github.com/redis-server/config"
-)
+import "github.com/redis-server/internal/config"
 
 func getIdleTime(lastAccessedAt uint32) uint32 {
 	c := getCurrentClock()

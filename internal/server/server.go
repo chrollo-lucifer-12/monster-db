@@ -9,8 +9,8 @@ import (
 
 	_ "net/http/pprof"
 
-	"github.com/redis-server/config"
-	"github.com/redis-server/core"
+	"github.com/redis-server/internal/config"
+	core "github.com/redis-server/internal/store"
 
 	"golang.org/x/sys/unix"
 )

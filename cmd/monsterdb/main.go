@@ -9,7 +9,9 @@ import (
 	"os/signal"
 	"sync"
 
-	"github.com/redis-server/config"
+	"github.com/redis-server/internal/config"
+	"github.com/redis-server/internal/server"
+	core "github.com/redis-server/internal/store"
 
 	"golang.org/x/sys/unix"
 )
@@ -33,10 +35,10 @@ func main() {
 	var wg sync.WaitGroup
 	wg.Add(2)
 
-	internal.Init()
-	internal.Restoreaof()
-	internal.MarkReady = server.MarkReady
-	internal.SignalModifiedKey = server.TouchWatchedKeys
+	core.Init()
+	core.Restoreaof()
+	core.MarkReady = server.MarkReady
+	core.SignalModifiedKey = server.TouchWatchedKeys
 	setupFlags()
 	log.Println("starting the server...")
 

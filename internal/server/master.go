@@ -5,7 +5,7 @@ import (
 	"log"
 	"net"
 
-	"github.com/redis-server/core"
+	core "github.com/redis-server/internal/store"
 	"golang.org/x/sys/unix"
 )
 
