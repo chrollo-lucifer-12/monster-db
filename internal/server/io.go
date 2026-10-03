@@ -1,7 +1,7 @@
 package server
 
 import (
-	"log"
+	"log/slog"
 
 	"golang.org/x/sys/unix"
 )
@@ -38,13 +38,12 @@ func readQueryFromClient(loop *EventLoop, fd int, clientData interface{}) {
 				break
 			}
 
-			log.Printf("Read error on FD %d: %v\n", fd, err)
+			slog.Error("Read error", "fd", fd, "err", err)
 			freeClient(loop, client)
 			return
 		}
 
 		if n == 0 {
-			log.Printf("Client on FD %d disconnected gracefully", fd)
 			freeClient(loop, client)
 			return
 		}
@@ -69,7 +68,7 @@ func sendReplyToClient(loop *EventLoop, fd int, clientData interface{}) {
 			return
 		}
 
-		log.Printf("Write error on FD %d: %v\n", fd, err)
+		slog.Error("Write erro", "fd", fd, "err", err)
 		freeClient(loop, client)
 		return
 	}
@@ -87,7 +86,7 @@ func processClientQueryBuffer(loop *EventLoop, client *Client) {
 	cmds, bytesConsumed, err := readCommands(client.QueryBuf)
 
 	if err != nil {
-		log.Println("Parsing error:", err)
+		slog.Error("Parsing error", "err", err)
 		freeClient(loop, client)
 		return
 	}

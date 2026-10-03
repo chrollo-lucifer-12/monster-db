@@ -103,6 +103,9 @@ func DumpAllAOF() {
 func Restoreaof() {
 	fp, err := os.OpenFile(config.AOFFILE, os.O_RDONLY, 0644)
 	if err != nil {
+		if os.IsNotExist(err) {
+			return
+		}
 		fmt.Println("error", err)
 		return
 	}

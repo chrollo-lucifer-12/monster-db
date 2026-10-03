@@ -1,7 +1,7 @@
 package server
 
 import (
-	"log"
+	"log/slog"
 
 	"golang.org/x/sys/unix"
 )
@@ -21,25 +21,25 @@ func AcceptTcpHandler(el *EventLoop, serverFD int, clientData interface{}) {
 				break
 			}
 
-			log.Println("Accept Error: ", err)
+			slog.Error("Accept Error", "err", err)
 			return
 		}
 
 		if err := unix.SetNonblock(fd, true); err != nil {
-			log.Println("SerNonBlock error :", err)
+			slog.Error("SerNonBlock", "err", err)
 			unix.Close(fd)
 			continue
 		}
 
 		if err := unix.SetsockoptInt(fd, unix.IPPROTO_TCP, unix.TCP_NODELAY, 1); err != nil {
-			log.Println("Set TCP_NODELAY error :", err)
+			slog.Error("Set TCP_NODELAY", "err", err)
 		}
 
 		client := NewClient(fd)
 
 		err = el.AddFileEvent(fd, unix.EPOLLIN, readQueryFromClient, client)
 		if err != nil {
-			log.Println("Failed to add client to epoll: ", err)
+			slog.Error("Failed to add client to epoll", "err", err)
 			unix.Close(fd)
 			continue
 		}

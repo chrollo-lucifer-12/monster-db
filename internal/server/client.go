@@ -2,7 +2,6 @@ package server
 
 import (
 	"context"
-	"log"
 	"strconv"
 	"time"
 
@@ -205,10 +204,6 @@ func (c *Client) UnwatchAllKeys() {
 
 func (c *Client) BlockOn(key string, timeoutMs int) {
 	waitingKeys[key] = append(waitingKeys[key], c)
-	log.Printf(
-		"SETTING BLOCKED: client=%p fd=%d flags_before=%08b",
-		c, c.Fd, c.flag,
-	)
 
 	c.flag |= CLIENT_BLOCKED
 

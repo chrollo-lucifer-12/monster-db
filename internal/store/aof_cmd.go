@@ -2,7 +2,7 @@ package core
 
 import (
 	"context"
-	"log"
+	"log/slog"
 	"os"
 	"syscall"
 
@@ -17,7 +17,7 @@ func (AOFCmd) Execute(ctx context.Context, c runtime.ClientCommander, args []str
 	r1, _, err1 := syscall.RawSyscall(syscall.SYS_FORK, 0, 0, 0)
 
 	if err1 != 0 {
-		log.Println("Fork failed:", err1)
+		slog.Error("Fork failed", "err", err1)
 		c.AppendError("fork failes")
 		return
 	}
@@ -27,6 +27,6 @@ func (AOFCmd) Execute(ctx context.Context, c runtime.ClientCommander, args []str
 		os.Exit(0)
 	}
 
-	log.Printf("Background save started in child process (PID: %d)\n", r1)
+	slog.Info("Background save started in child process", "pid", r1)
 	c.AppendSimpleString("RESP_OK")
 }

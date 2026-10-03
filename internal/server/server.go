@@ -1,7 +1,7 @@
 package server
 
 import (
-	"log"
+	"log/slog"
 	"net"
 	"os"
 	"sync"
@@ -55,22 +55,40 @@ func RunAsyncServer(wg *sync.WaitGroup) error {
 		atomic.StoreInt32(&eStatus, EnngineStatus_SHUTTING_DOWN)
 	}()
 
-	log.Println("Starting server on ", config.Host, config.Port)
-
 	maxClients := 100000
+
+	slog.Info("server starting",
+		"host", config.Host,
+		"port", config.Port,
+		"max_clients", maxClients,
+	)
+
 	loop, err := CreateEventLoop(maxClients)
 	if err != nil {
+		slog.Error("failed to create event loop",
+			"err", err,
+		)
 		return err
 	}
 	defer unix.Close(loop.EpollFD)
 
 	serverFD, err := unix.Socket(unix.AF_INET, unix.O_NONBLOCK|unix.SOCK_STREAM, 0)
 	if err != nil {
+		slog.Error("failed to create server socket",
+			"err", err,
+		)
 		return err
 	}
 	defer unix.Close(serverFD)
 
-	unix.SetsockoptInt(serverFD, unix.SOL_SOCKET, unix.SO_REUSEADDR, 1)
+	err = unix.SetsockoptInt(serverFD, unix.SOL_SOCKET, unix.SO_REUSEADDR, 1)
+	if err != nil {
+		slog.Error("failed to set socket option",
+			"option", "SO_REUSEADDR",
+			"err", err,
+		)
+		return err
+	}
 
 	ip4 := net.ParseIP(config.Host)
 	err = unix.Bind(serverFD, &unix.SockaddrInet4{
@@ -78,21 +96,40 @@ func RunAsyncServer(wg *sync.WaitGroup) error {
 		Addr: [4]byte{ip4[0], ip4[1], ip4[2], ip4[3]},
 	})
 	if err != nil {
+		slog.Error("failed to bind server socket",
+			"host", config.Host,
+			"port", config.Port,
+			"err", err,
+		)
 		return err
 	}
 
 	if err = unix.Listen(serverFD, maxClients); err != nil {
+		slog.Error("failed to listen",
+			"err", err,
+		)
 		return err
 	}
 
 	err = loop.AddFileEvent(serverFD, unix.EPOLLIN, AcceptTcpHandler, nil)
 	if err != nil {
+		slog.Error("failed to register server socket",
+			"err", err,
+		)
 		return err
 	}
 
 	loop.addTimeEvent(1000, serverCronHandler, nil)
 	loop.addTimeEvent(100, HandleBlockedClients, nil)
 
-	return loop.Main()
+	if err := loop.Main(); err != nil {
+		slog.Error("event loop stopped",
+			"err", err,
+		)
+		return err
+	}
 
+	slog.Info("event loop stopped")
+
+	return nil
 }
