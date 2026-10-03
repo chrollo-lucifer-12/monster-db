@@ -1,0 +1,89 @@
+package ds
+
+import (
+	"encoding/binary"
+)
+
+// int16 - 2 bytes
+
+type Intset struct {
+	length int32
+	data   []byte
+}
+
+func NewIntset() *Intset {
+	return &Intset{
+		length: 0,
+		data:   make([]byte, 0, 64),
+	}
+}
+
+func (is *Intset) Size() int32 { return is.length }
+
+func (is *Intset) Search(val int16) int {
+	l := 0
+	r := int(is.length - 1)
+
+	idx := -1
+
+	for r >= l {
+		mid := (l + r) / 2
+
+		if is.Get(mid) <= val {
+			idx = mid
+			l = mid + 1
+		} else {
+			r = mid - 1
+		}
+	}
+
+	return idx
+}
+
+func (is *Intset) Set(val int16) bool {
+
+	idx := is.Search(val)
+
+	if idx != -1 && is.Get(idx) == val {
+		return false
+	}
+
+	insertAt := (idx + 1) * 2
+
+	is.data = append(is.data, 0, 0)
+
+	copy(is.data[insertAt+2:], is.data[insertAt:])
+
+	binary.LittleEndian.PutUint16(is.data[insertAt:], uint16(val))
+
+	is.length++
+
+	return true
+}
+
+func (is *Intset) Get(idx int) int16 {
+	offset := idx << 1
+	b := is.data
+
+	v0 := b[offset]
+	v1 := b[offset+1]
+
+	return int16(uint16(v0) | uint16(v1)<<8)
+}
+
+func (is *Intset) Del(val int16) int {
+	idx := is.Search(val)
+
+	if idx == -1 || (idx != -1 && is.Get(idx) != val) {
+		return 0
+	}
+
+	pos := idx * 2
+
+	copy(is.data[pos:], is.data[pos+2:])
+
+	is.data = is.data[:len(is.data)-2]
+	is.length--
+
+	return 1
+}
