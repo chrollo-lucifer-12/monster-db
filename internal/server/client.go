@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/redis-server/internal/resp"
+	"github.com/redis-server/internal/runtime"
 	core "github.com/redis-server/internal/store"
 	"golang.org/x/sys/unix"
 )
@@ -19,7 +20,7 @@ const (
 )
 
 type Multistate struct {
-	cmds    core.RedisCmds
+	cmds    runtime.RedisCmds
 	aborted bool
 }
 
@@ -113,11 +114,11 @@ func (c *Client) ResetMultiState() {
 	c.multistate.aborted = false
 }
 
-func (c *Client) QueueCommand(cmd *core.RedisCmd) {
+func (c *Client) QueueCommand(cmd *runtime.RedisCmd) {
 	c.multistate.cmds = append(c.multistate.cmds, cmd)
 }
 
-func (c *Client) MultiCommands() core.RedisCmds {
+func (c *Client) MultiCommands() runtime.RedisCmds {
 	return c.multistate.cmds
 }
 
@@ -266,7 +267,7 @@ func processKeys(loop *EventLoop) {
 		}
 
 		client := waitingClients[0]
-		ctx := core.WithClient(context.Background(), client)
+		ctx := runtime.WithClient(context.Background(), client)
 
 		cmdImpl, _ := core.Lookup("LPOP")
 

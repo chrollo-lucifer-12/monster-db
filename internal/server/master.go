@@ -5,7 +5,7 @@ import (
 	"log"
 	"net"
 
-	core "github.com/redis-server/internal/store"
+	"github.com/redis-server/internal/runtime"
 	"golang.org/x/sys/unix"
 )
 
@@ -16,7 +16,7 @@ type Replica struct {
 
 var MasterFD int = -1
 var replicas []*Replica
-var pendindCommands []core.RedisCmd
+var pendindCommands []runtime.RedisCmd
 
 func addReplica(loop *EventLoop, host string, port int) error {
 	fd, err := unix.Socket(unix.AF_INET, unix.SOCK_STREAM, 0)

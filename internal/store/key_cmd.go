@@ -4,6 +4,8 @@ import (
 	"context"
 	"strconv"
 	"time"
+
+	"github.com/redis-server/internal/runtime"
 )
 
 type PingCmd struct{}
@@ -22,7 +24,7 @@ func (TtlCmd) Name() string  { return "TTL" }
 func (ExpCmd) Name() string  { return "EXPIRE" }
 func (IncrCmd) Name() string { return "INCR" }
 
-func (PingCmd) Execute(ctx context.Context, c ClientCommander, args []string) {
+func (PingCmd) Execute(ctx context.Context, c runtime.ClientCommander, args []string) {
 
 	if len(args) >= 2 {
 		c.AppendError(errWrongArgs("ping"))
@@ -40,7 +42,7 @@ func (PingCmd) Execute(ctx context.Context, c ClientCommander, args []string) {
 
 }
 
-func (IncrCmd) Execute(ctx context.Context, c ClientCommander, args []string) {
+func (IncrCmd) Execute(ctx context.Context, c runtime.ClientCommander, args []string) {
 	if len(args) != 1 {
 		c.AppendError(errWrongArgs("incr"))
 		//	c.AppendReply(errWrongArgs("incr"), false)
@@ -74,7 +76,7 @@ func (IncrCmd) Execute(ctx context.Context, c ClientCommander, args []string) {
 	//	c.AppendReply(i, false)
 }
 
-func (ExpCmd) Execute(ctx context.Context, c ClientCommander, args []string) {
+func (ExpCmd) Execute(ctx context.Context, c runtime.ClientCommander, args []string) {
 	if len(args) <= 1 {
 		c.AppendError(errWrongArgs("expire"))
 		//c.AppendReply(errWrongArgs("expire"), false)
@@ -102,7 +104,7 @@ func (ExpCmd) Execute(ctx context.Context, c ClientCommander, args []string) {
 	c.AppendBytesReply(RESP_ONE)
 }
 
-func (TtlCmd) Execute(ctx context.Context, c ClientCommander, args []string) {
+func (TtlCmd) Execute(ctx context.Context, c runtime.ClientCommander, args []string) {
 	if len(args) != 1 {
 		c.AppendError(errWrongArgs("ttl"))
 		//c.AppendReply(errWrongArgs("ttl"), false)
@@ -135,7 +137,7 @@ func (TtlCmd) Execute(ctx context.Context, c ClientCommander, args []string) {
 	c.AppendIntReply(int64(durationMs / 1000))
 }
 
-func (DelCmd) Execute(ctx context.Context, c ClientCommander, args []string) {
+func (DelCmd) Execute(ctx context.Context, c runtime.ClientCommander, args []string) {
 	var countDeleted int = 0
 
 	for _, key := range args {
@@ -147,7 +149,7 @@ func (DelCmd) Execute(ctx context.Context, c ClientCommander, args []string) {
 
 }
 
-func (SetCmd) Execute(ctx context.Context, c ClientCommander, args []string) {
+func (SetCmd) Execute(ctx context.Context, c runtime.ClientCommander, args []string) {
 	if len(args) <= 1 {
 		c.AppendError(errWrongArgs("set"))
 		return
@@ -185,7 +187,7 @@ func (SetCmd) Execute(ctx context.Context, c ClientCommander, args []string) {
 	c.AppendSimpleString("OK")
 }
 
-func (GetCmd) Execute(ctx context.Context, c ClientCommander, args []string) {
+func (GetCmd) Execute(ctx context.Context, c runtime.ClientCommander, args []string) {
 	if len(args) != 1 {
 		c.AppendError("ERR wrong number of arguments for 'get' command")
 		return

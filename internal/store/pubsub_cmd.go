@@ -2,13 +2,15 @@ package core
 
 import (
 	"context"
+
+	"github.com/redis-server/internal/runtime"
 )
 
 type SubCmd struct{}
 
 func (SubCmd) Name() string { return "SUBSCRIBE" }
 
-func (SubCmd) Execute(ctx context.Context, c ClientCommander, args []string) {
+func (SubCmd) Execute(ctx context.Context, c runtime.ClientCommander, args []string) {
 	for _, key := range args {
 		count, added := c.Subscribe(key)
 		if !added {
@@ -25,7 +27,7 @@ type UnsubCmd struct{}
 
 func (UnsubCmd) Name() string { return "UNSUBSCRIBE" }
 
-func (UnsubCmd) Execute(ctx context.Context, c ClientCommander, args []string) {
+func (UnsubCmd) Execute(ctx context.Context, c runtime.ClientCommander, args []string) {
 	targets := args
 	if len(targets) == 0 {
 		targets = c.SubscribedKeys()
@@ -48,7 +50,7 @@ type PublishCmd struct{}
 
 func (PublishCmd) Name() string { return "PUBLISH" }
 
-func (PublishCmd) Execute(ctx context.Context, c ClientCommander, args []string) {
+func (PublishCmd) Execute(ctx context.Context, c runtime.ClientCommander, args []string) {
 	if len(args) != 2 {
 		c.AppendError(errWrongArgs("publish"))
 		return

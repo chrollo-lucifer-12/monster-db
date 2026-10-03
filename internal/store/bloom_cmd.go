@@ -5,6 +5,7 @@ import (
 	"strconv"
 
 	"github.com/redis-server/internal/ds"
+	"github.com/redis-server/internal/runtime"
 )
 
 type BFRESERVECmd struct{}
@@ -15,7 +16,7 @@ func (BFRESERVECmd) Name() string { return "BF.RESERVE" }
 func (BFADDCmd) Name() string     { return "BF.ADD" }
 func (BFEXISTSCmd) Name() string  { return "BF.EXISTS" }
 
-func (BFEXISTSCmd) Execute(ctx context.Context, c ClientCommander, args []string) {
+func (BFEXISTSCmd) Execute(ctx context.Context, c runtime.ClientCommander, args []string) {
 	if len(args) != 2 {
 		c.AppendError(errWrongArgs("bf.exists"))
 		return
@@ -36,7 +37,7 @@ func (BFEXISTSCmd) Execute(ctx context.Context, c ClientCommander, args []string
 	c.AppendIntReply(0)
 }
 
-func (BFADDCmd) Execute(ctx context.Context, c ClientCommander, args []string) {
+func (BFADDCmd) Execute(ctx context.Context, c runtime.ClientCommander, args []string) {
 	if len(args) != 2 {
 		c.AppendError(errWrongArgs("bf.add"))
 		return
@@ -50,7 +51,7 @@ func (BFADDCmd) Execute(ctx context.Context, c ClientCommander, args []string) {
 	c.AppendIntReply(1)
 }
 
-func (BFRESERVECmd) Execute(ctx context.Context, c ClientCommander, args []string) {
+func (BFRESERVECmd) Execute(ctx context.Context, c runtime.ClientCommander, args []string) {
 	if len(args) < 3 {
 		c.AppendError(errWrongArgs("bf.reserve"))
 		return

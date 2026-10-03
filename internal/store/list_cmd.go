@@ -6,6 +6,7 @@ import (
 	"strconv"
 
 	"github.com/redis-server/internal/ds"
+	"github.com/redis-server/internal/runtime"
 )
 
 type LLENCmd struct{}
@@ -20,7 +21,7 @@ func (RPUSHCmd) Name() string  { return "RPUSH" }
 func (LRANGECmd) Name() string { return "LRANGE" }
 func (LPOPCmd) Name() string   { return "LPOP" }
 
-func (LLENCmd) Execute(ctx context.Context, c ClientCommander, args []string) {
+func (LLENCmd) Execute(ctx context.Context, c runtime.ClientCommander, args []string) {
 	if len(args) != 1 {
 		c.AppendError(errWrongArgs("llen"))
 	}
@@ -41,7 +42,7 @@ func (LLENCmd) Execute(ctx context.Context, c ClientCommander, args []string) {
 	c.AppendIntReply(int64(obj.Value.(*ds.Quicklist).Size()))
 }
 
-func (LPUSHCmd) Execute(ctx context.Context, c ClientCommander, args []string) {
+func (LPUSHCmd) Execute(ctx context.Context, c runtime.ClientCommander, args []string) {
 	if len(args) < 2 {
 		c.AppendError(errWrongArgs("lpush"))
 		return
@@ -86,7 +87,7 @@ func (LPUSHCmd) Execute(ctx context.Context, c ClientCommander, args []string) {
 	c.AppendIntReply(int64(ql.Size()))
 }
 
-func (RPUSHCmd) Execute(ctx context.Context, c ClientCommander, args []string) {
+func (RPUSHCmd) Execute(ctx context.Context, c runtime.ClientCommander, args []string) {
 	if len(args) < 2 {
 		c.AppendError(errWrongArgs("rpush"))
 		return
@@ -133,7 +134,7 @@ func (RPUSHCmd) Execute(ctx context.Context, c ClientCommander, args []string) {
 	c.AppendIntReply(int64(ql.Size()))
 }
 
-func (LRANGECmd) Execute(ctx context.Context, c ClientCommander, args []string) {
+func (LRANGECmd) Execute(ctx context.Context, c runtime.ClientCommander, args []string) {
 	if len(args) != 3 {
 		c.AppendError(errWrongArgs("lrange"))
 		return
@@ -153,7 +154,7 @@ func (LRANGECmd) Execute(ctx context.Context, c ClientCommander, args []string) 
 	ql.GetElements(start, stop, c)
 }
 
-func (LPOPCmd) Execute(ctx context.Context, c ClientCommander, args []string) {
+func (LPOPCmd) Execute(ctx context.Context, c runtime.ClientCommander, args []string) {
 	if len(args) < 1 {
 		c.AppendError(errWrongArgs("lpop"))
 		return

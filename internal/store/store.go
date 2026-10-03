@@ -3,19 +3,20 @@ package core
 import (
 	"github.com/redis-server/internal/config"
 	"github.com/redis-server/internal/ds"
+	"github.com/redis-server/internal/runtime"
 )
 
 var store map[string]Obj
 var expires map[string]uint64
 var ePool *EvictionPool
-var registry map[string]Command
+var registry map[string]runtime.Command
 
 func Init() {
 	store = make(map[string]Obj, config.KeysLimit)
 	expires = make(map[string]uint64)
 	ePool = newEvictionPool(16)
 
-	registry = map[string]Command{
+	registry = map[string]runtime.Command{
 		"SET":          SetCmd{},
 		"GET":          GetCmd{},
 		"TTL":          TtlCmd{},
@@ -61,7 +62,7 @@ func Init() {
 	}
 }
 
-func Lookup(name string) (Command, bool) {
+func Lookup(name string) (runtime.Command, bool) {
 	cmd, ok := registry[name]
 	return cmd, ok
 }

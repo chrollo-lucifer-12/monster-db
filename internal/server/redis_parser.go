@@ -6,7 +6,7 @@ import (
 	"strings"
 
 	"github.com/redis-server/internal/resp"
-	core "github.com/redis-server/internal/store"
+	"github.com/redis-server/internal/runtime"
 )
 
 func toArrayString(ai []interface{}) ([]string, error) {
@@ -17,7 +17,7 @@ func toArrayString(ai []interface{}) ([]string, error) {
 	return as, nil
 }
 
-func readCommands(data []byte) (core.RedisCmds, int, error) {
+func readCommands(data []byte) (runtime.RedisCmds, int, error) {
 	if len(data) == 0 {
 		return nil, 0, nil
 	}
@@ -27,7 +27,7 @@ func readCommands(data []byte) (core.RedisCmds, int, error) {
 		return nil, 0, err
 	}
 
-	cmds := make([]*core.RedisCmd, 0, len(values))
+	cmds := make([]*runtime.RedisCmd, 0, len(values))
 
 	for _, value := range values {
 
@@ -45,7 +45,7 @@ func readCommands(data []byte) (core.RedisCmds, int, error) {
 			continue
 		}
 
-		cmds = append(cmds, &core.RedisCmd{
+		cmds = append(cmds, &runtime.RedisCmd{
 			Cmd:  strings.ToUpper(tokens[0]),
 			Args: tokens[1:],
 		})

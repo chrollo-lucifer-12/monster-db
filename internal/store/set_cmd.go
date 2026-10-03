@@ -5,6 +5,7 @@ import (
 	"strconv"
 
 	"github.com/redis-server/internal/ds"
+	"github.com/redis-server/internal/runtime"
 )
 
 var (
@@ -20,7 +21,7 @@ type SaddCmd struct{}
 
 func (SaddCmd) Name() string { return "SADD" }
 
-func (SaddCmd) Execute(ctx context.Context, c ClientCommander, args []string) {
+func (SaddCmd) Execute(ctx context.Context, c runtime.ClientCommander, args []string) {
 	if len(args) < 2 {
 		c.AppendError(errWrongArgsSadd)
 		return
@@ -52,7 +53,7 @@ type ScardCmd struct{}
 
 func (ScardCmd) Name() string { return "SCARD" }
 
-func (ScardCmd) Execute(ctx context.Context, c ClientCommander, args []string) {
+func (ScardCmd) Execute(ctx context.Context, c runtime.ClientCommander, args []string) {
 	if len(args) != 1 {
 		c.AppendError(errWrongArgsScard)
 		return
@@ -74,7 +75,7 @@ type SismemberCmd struct{}
 
 func (SismemberCmd) Name() string { return "SISMEMBER" }
 
-func (SismemberCmd) Execute(ctx context.Context, c ClientCommander, args []string) {
+func (SismemberCmd) Execute(ctx context.Context, c runtime.ClientCommander, args []string) {
 	if len(args) != 2 {
 		c.AppendError(errWrongArgsSismember)
 	}
@@ -106,7 +107,7 @@ type SmembersCmd struct{}
 
 func (SmembersCmd) Name() string { return "SMEMBERS" }
 
-func (SmembersCmd) Execute(ctx context.Context, c ClientCommander, args []string) {
+func (SmembersCmd) Execute(ctx context.Context, c runtime.ClientCommander, args []string) {
 	if len(args) != 1 {
 		c.AppendError(errWrongArgsSmembers)
 		return
@@ -134,7 +135,7 @@ type SremCmd struct{}
 
 func (SremCmd) Name() string { return "SREM" }
 
-func (SremCmd) Execute(ctx context.Context, c ClientCommander, args []string) {
+func (SremCmd) Execute(ctx context.Context, c runtime.ClientCommander, args []string) {
 	if len(args) != 2 {
 		c.AppendError(errWrongArgsSrem)
 		return

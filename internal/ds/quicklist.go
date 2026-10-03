@@ -2,6 +2,8 @@ package ds
 
 import (
 	"strconv"
+
+	"github.com/redis-server/internal/runtime"
 )
 
 const maxListpackBytes = 8 * 1024
@@ -103,7 +105,7 @@ func (ql *Quicklist) AddToHead(val any) {
 	ql.len++
 }
 
-func (ql *Quicklist) RemoveElements(count int, c ClientCommander) {
+func (ql *Quicklist) RemoveElements(count int, c runtime.ClientCommander) {
 	if ql.head == nil || ql.len == 0 || count <= 0 {
 		c.AppendNull()
 		return
@@ -197,7 +199,7 @@ func (ql *Quicklist) RemoveElements(count int, c ClientCommander) {
 	}
 }
 
-func (ql *Quicklist) GetElements(start, stop int, c ClientCommander) {
+func (ql *Quicklist) GetElements(start, stop int, c runtime.ClientCommander) {
 	if ql.head == nil || ql.len == 0 {
 		c.AppendNull()
 		return

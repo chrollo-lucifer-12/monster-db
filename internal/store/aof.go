@@ -10,6 +10,7 @@ import (
 	"github.com/redis-server/internal/config"
 	"github.com/redis-server/internal/ds"
 	"github.com/redis-server/internal/resp"
+	"github.com/redis-server/internal/runtime"
 )
 
 type nullClient struct{}
@@ -31,11 +32,11 @@ func (nullClient) AppendIntArray(v []int64)            {}
 func (nullClient) AppendStrArray(v []string)           {}
 func (nullClient) AppendStringArrayArray(v [][]string) {}
 
-func (nullClient) ResetMultiState()           {}
-func (nullClient) QueueCommand(cmd *RedisCmd) {}
-func (nullClient) MultiCommands() RedisCmds   { return nil }
-func (nullClient) AbortMulti()                {}
-func (nullClient) IsMultiAborted() bool       { return false }
+func (nullClient) ResetMultiState()                   {}
+func (nullClient) QueueCommand(cmd *runtime.RedisCmd) {}
+func (nullClient) MultiCommands() runtime.RedisCmds   { return nil }
+func (nullClient) AbortMulti()                        {}
+func (nullClient) IsMultiAborted() bool               { return false }
 
 func (nullClient) Key() []byte     { return nil }
 func (nullClient) SetKey(k []byte) {}
@@ -55,7 +56,7 @@ func (nullClient) BlockOn(key string, timeoutMs int) {
 	panic("core: BLPOP blocked during AOF replay")
 }
 
-var NullClient ClientCommander = nullClient{}
+var NullClient runtime.ClientCommander = nullClient{}
 
 func writeCommand(fp *os.File, tokens []string) {
 	fp.Write(resp.Encode(nil, tokens, false))
@@ -120,7 +121,7 @@ func Restoreaof() {
 		return
 	}
 
-	ctx := WithClient(context.Background(), NullClient)
+	ctx := runtime.WithClient(context.Background(), NullClient)
 
 	for _, raw := range decoded {
 		arr, ok := raw.([]interface{})

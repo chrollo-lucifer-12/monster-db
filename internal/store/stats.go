@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"strconv"
 	"time"
+
+	"github.com/redis-server/internal/runtime"
 )
 
 var (
@@ -22,7 +24,7 @@ func (ClientCmd) Name() string  { return "CLIENT" }
 func (LatencyCmd) Name() string { return "LATENCY" }
 func (SleepCmd) Name() string   { return "SLEEP" }
 
-func (InfoCmd) Execute(ctx context.Context, c ClientCommander, args []string) {
+func (InfoCmd) Execute(ctx context.Context, c runtime.ClientCommander, args []string) {
 	var buf []byte
 	buf = append(buf, "# Keyspace\r\n"...)
 
@@ -34,15 +36,15 @@ func (InfoCmd) Execute(ctx context.Context, c ClientCommander, args []string) {
 	c.AppendBytesReply(buf)
 }
 
-func (ClientCmd) Execute(ctx context.Context, c ClientCommander, args []string) {
+func (ClientCmd) Execute(ctx context.Context, c runtime.ClientCommander, args []string) {
 	c.AppendSimpleString("RESP_OK")
 }
 
-func (LatencyCmd) Execute(ctx context.Context, c ClientCommander, args []string) {
+func (LatencyCmd) Execute(ctx context.Context, c runtime.ClientCommander, args []string) {
 	c.AppendStrArray([]string{})
 }
 
-func (SleepCmd) Execute(ctx context.Context, c ClientCommander, args []string) {
+func (SleepCmd) Execute(ctx context.Context, c runtime.ClientCommander, args []string) {
 	if len(args) != 1 {
 		c.AppendError(errWrongArgsSleep)
 		return

@@ -5,6 +5,7 @@ import (
 	"strconv"
 
 	"github.com/redis-server/internal/ds"
+	"github.com/redis-server/internal/runtime"
 )
 
 type GeoAddCmd struct{}
@@ -27,7 +28,7 @@ func (GeoDistCmd) Name() string { return "GEODIST" }
 
 func (GeoPosCmd) Name() string { return "GEOPOS" }
 
-func (GeoHashCmd) Execute(ctx context.Context, c ClientCommander, args []string) {
+func (GeoHashCmd) Execute(ctx context.Context, c runtime.ClientCommander, args []string) {
 	if len(args) < 2 {
 		c.AppendError(errWrongArgs("geohash"))
 		return
@@ -47,7 +48,7 @@ func (GeoHashCmd) Execute(ctx context.Context, c ClientCommander, args []string)
 	c.AppendStrArray(obj.Value.(*ds.GeoSpatial).GeoHash(args[1:]))
 }
 
-func (GeoAddCmd) Execute(ctx context.Context, c ClientCommander, args []string) {
+func (GeoAddCmd) Execute(ctx context.Context, c runtime.ClientCommander, args []string) {
 	if len(args) < 4 {
 		c.AppendError(errWrongArgs("geoadd"))
 		return
@@ -79,7 +80,7 @@ func (GeoAddCmd) Execute(ctx context.Context, c ClientCommander, args []string) 
 	c.AppendIntReply(int64(count))
 }
 
-func (GeoDistCmd) Execute(ctx context.Context, c ClientCommander, args []string) {
+func (GeoDistCmd) Execute(ctx context.Context, c runtime.ClientCommander, args []string) {
 	if len(args) != 3 {
 		c.AppendError(errWrongArgs("geodist"))
 		//	c.AppendReply(errWrongArgs("geodist"), false)
@@ -123,7 +124,7 @@ func (GeoDistCmd) Execute(ctx context.Context, c ClientCommander, args []string)
 	c.AppendFloat(Haversine(e1.Lat, e1.Lon, e2.Lat, e2.Lon))
 }
 
-func (GeoPosCmd) Execute(ctx context.Context, c ClientCommander, args []string) {
+func (GeoPosCmd) Execute(ctx context.Context, c runtime.ClientCommander, args []string) {
 	if len(args) < 2 {
 		c.AppendError(errWrongArgs("geopos"))
 		//	c.AppendReply(errWrongArgs("geopos"), false)
@@ -163,7 +164,7 @@ func (GeoPosCmd) Execute(ctx context.Context, c ClientCommander, args []string) 
 	c.AppendStringArrayArray(res)
 }
 
-func (GeoSearchCmd) Execute(ctx context.Context, c ClientCommander, args []string) {
+func (GeoSearchCmd) Execute(ctx context.Context, c runtime.ClientCommander, args []string) {
 	if len(args) != 4 {
 		c.AppendError(errWrongArgs("geosearch"))
 		//c.AppendReply(errWrongArgs("geosearch"), false)

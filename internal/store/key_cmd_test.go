@@ -9,6 +9,7 @@ import (
 
 	"github.com/redis-server/internal/config"
 	"github.com/redis-server/internal/resp"
+	"github.com/redis-server/internal/runtime"
 )
 
 type benchClient struct {
@@ -89,8 +90,8 @@ func (c *benchClient) SetFlag(flag uint8)                 {}
 func (c *benchClient) ClearFlag(flag uint8)               {}
 func (c *benchClient) HasFlag(flag uint8) bool            { return false }
 func (c *benchClient) ResetMultiState()                   {}
-func (c *benchClient) QueueCommand(cmd *RedisCmd)         {}
-func (c *benchClient) MultiCommands() RedisCmds           { return nil }
+func (c *benchClient) QueueCommand(cmd *runtime.RedisCmd) {}
+func (c *benchClient) MultiCommands() runtime.RedisCmds   { return nil }
 func (c *benchClient) AbortMulti()                        {}
 func (c *benchClient) IsMultiAborted() bool               { return false }
 func (c *benchClient) Key() []byte                        { return nil }

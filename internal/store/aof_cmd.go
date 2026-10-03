@@ -5,13 +5,15 @@ import (
 	"log"
 	"os"
 	"syscall"
+
+	"github.com/redis-server/internal/runtime"
 )
 
 type AOFCmd struct{}
 
 func (AOFCmd) Name() string { return "BGREWRITEAOF" }
 
-func (AOFCmd) Execute(ctx context.Context, c ClientCommander, args []string) {
+func (AOFCmd) Execute(ctx context.Context, c runtime.ClientCommander, args []string) {
 	r1, _, err1 := syscall.RawSyscall(syscall.SYS_FORK, 0, 0, 0)
 
 	if err1 != 0 {

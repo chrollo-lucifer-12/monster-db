@@ -5,6 +5,7 @@ import (
 	"strconv"
 
 	"github.com/redis-server/internal/resp"
+	"github.com/redis-server/internal/runtime"
 	core "github.com/redis-server/internal/store"
 )
 
@@ -24,7 +25,7 @@ func removeClient(slice []*Client, target *Client) []*Client {
 	return newSlice
 }
 
-func encodeCommand(cmd core.RedisCmd) []byte {
+func encodeCommand(cmd runtime.RedisCmd) []byte {
 	buf := make([]byte, 0, 128)
 
 	buf = resp.EncodeArrayLen(buf, 1+len(cmd.Args))
@@ -38,7 +39,7 @@ func encodeCommand(cmd core.RedisCmd) []byte {
 	return buf
 }
 
-func respond(cmds core.RedisCmds, client *Client, loop *EventLoop) {
+func respond(cmds runtime.RedisCmds, client *Client, loop *EventLoop) {
 	for _, cmd := range cmds {
 
 		if client.HasFlag(core.MULTI_MODE) && cmd.Cmd != "EXEC" && cmd.Cmd != "DISCARD" {
@@ -83,7 +84,7 @@ func respond(cmds core.RedisCmds, client *Client, loop *EventLoop) {
 			continue
 		}
 
-		ctx := core.WithClient(context.Background(), client)
+		ctx := runtime.WithClient(context.Background(), client)
 
 		cmdImpl, ok := core.Lookup(cmd.Cmd)
 		if !ok {

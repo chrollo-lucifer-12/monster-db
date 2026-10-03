@@ -2,6 +2,8 @@ package core
 
 import (
 	"context"
+
+	"github.com/redis-server/internal/runtime"
 )
 
 const (
@@ -23,7 +25,7 @@ type MultiCmd struct{}
 
 func (MultiCmd) Name() string { return "MULTI" }
 
-func (MultiCmd) Execute(ctx context.Context, c ClientCommander, args []string) {
+func (MultiCmd) Execute(ctx context.Context, c runtime.ClientCommander, args []string) {
 	c.SetFlag(MULTI_MODE)
 	c.ResetMultiState()
 	c.AppendBytesReply(respOKSimple)
@@ -33,7 +35,7 @@ type ExecCmd struct{}
 
 func (ExecCmd) Name() string { return "EXEC" }
 
-func (ExecCmd) Execute(ctx context.Context, c ClientCommander, args []string) {
+func (ExecCmd) Execute(ctx context.Context, c runtime.ClientCommander, args []string) {
 	if !c.HasFlag(MULTI_MODE) {
 		c.AppendError(errExecWithoutMulti)
 		return
@@ -75,7 +77,7 @@ type DiscardCmd struct{}
 
 func (DiscardCmd) Name() string { return "DISCARD" }
 
-func (DiscardCmd) Execute(ctx context.Context, c ClientCommander, args []string) {
+func (DiscardCmd) Execute(ctx context.Context, c runtime.ClientCommander, args []string) {
 	if !c.HasFlag(MULTI_MODE) {
 		c.AppendError(errDiscardWithoutMulti)
 		return
@@ -90,7 +92,7 @@ type WatchCmd struct{}
 
 func (WatchCmd) Name() string { return "WATCH" }
 
-func (WatchCmd) Execute(ctx context.Context, c ClientCommander, args []string) {
+func (WatchCmd) Execute(ctx context.Context, c runtime.ClientCommander, args []string) {
 	if c.HasFlag(MULTI_MODE) {
 		c.AppendError(errWatchInsideMulti)
 		return

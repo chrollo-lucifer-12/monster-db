@@ -3,13 +3,15 @@ package core
 import (
 	"context"
 	"strconv"
+
+	"github.com/redis-server/internal/runtime"
 )
 
 type ZaddCmd struct{}
 
 func (ZaddCmd) Name() string { return "ZADD" }
 
-func (ZaddCmd) Execute(ctx context.Context, c ClientCommander, args []string) {
+func (ZaddCmd) Execute(ctx context.Context, c runtime.ClientCommander, args []string) {
 	if len(args) != 3 {
 		c.AppendError(errWrongArgs("zadd"))
 		return
@@ -41,7 +43,7 @@ type ZremCmd struct{}
 
 func (ZremCmd) Name() string { return "ZREM" }
 
-func (ZremCmd) Execute(ctx context.Context, c ClientCommander, args []string) {
+func (ZremCmd) Execute(ctx context.Context, c runtime.ClientCommander, args []string) {
 	if len(args) < 2 {
 		c.AppendError(errWrongArgs("zrem"))
 		return
@@ -68,7 +70,7 @@ type ZscoreCmd struct{}
 
 func (ZscoreCmd) Name() string { return "ZSCORE" }
 
-func (ZscoreCmd) Execute(ctx context.Context, c ClientCommander, args []string) {
+func (ZscoreCmd) Execute(ctx context.Context, c runtime.ClientCommander, args []string) {
 	if len(args) != 2 {
 		c.AppendError(errWrongArgs("zscore"))
 		return
@@ -97,7 +99,7 @@ type ZrangeCmd struct{}
 
 func (ZrangeCmd) Name() string { return "ZRANGE" }
 
-func (ZrangeCmd) Execute(ctx context.Context, c ClientCommander, args []string) {
+func (ZrangeCmd) Execute(ctx context.Context, c runtime.ClientCommander, args []string) {
 	if len(args) != 3 {
 		c.AppendError(errWrongArgs("zrange"))
 		return
